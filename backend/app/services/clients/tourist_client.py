@@ -56,7 +56,7 @@ def _parse_leisure_places_json(response_text: str) -> List[Dict[str, Any]]:
                     "mapx": lon,
                     "tel": item.get('tel', ''),
                     "areacode": item.get('areacode', ''),
-                    "sigungucode": item.get('sigungucode', ''),
+                    "sigungucode": item.get('lDongSignguCd', ''), 
                     "cat3": item.get('cat3', ''),
                     "firstimage": item.get('firstimage', ''),
                     "firstimage2": item.get('firstimage2', ''),
