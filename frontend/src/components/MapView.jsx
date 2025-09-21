@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import useKakaoLoader from "../hooks/useKakaoLoader";
-import { getTouristSpots, getMarineStations, getSurfaceStations } from "../api/client";
+import { getPlaces, getMarineStations, getSurfaceStations, getSports } from "../api/client";
 import ActivityFilter from "./ActivityFilter";
 
 const KAKAO_APPKEY = import.meta.env.VITE_KAKAO_APPKEY;
@@ -14,9 +14,10 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   const marineMarkersRef = useRef([]);
   const surfaceMarkersRef = useRef([]);
   
-  const [touristSpots, setTouristSpots] = useState([]);
+  const [places, setPlaces] = useState([]);
   const [marineStations, setMarineStations] = useState([]);
   const [surfaceStations, setSurfaceStations] = useState([]);
+  const [sports, setSports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedWaterSport, setSelectedWaterSport] = useState(null);
   const [showMarineStations, setShowMarineStations] = useState(true);
@@ -28,15 +29,17 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
     setLoading(true);
     try {
       const params = selectedWaterSport ? { cat3: selectedWaterSport } : {};
-      const [touristData, marineData, surfaceData] = await Promise.all([
-        getTouristSpots(params),
+      const [placesData, marineData, surfaceData, sportsData] = await Promise.all([
+        getPlaces(params),
         getMarineStations(),
-        getSurfaceStations()
+        getSurfaceStations(),
+        getSports()
       ]);
       
-      setTouristSpots(touristData?.tourist_spots || []);
+      setPlaces(placesData?.places || []);
       setMarineStations(marineData?.stations || []);
       setSurfaceStations(surfaceData?.stations || []);
+      setSports(sportsData?.sports || []);
     } catch (error) {
       console.error("❌ Data fetch failed:", error);
     } finally {
@@ -80,15 +83,15 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
           lat >= 33 && lat <= 43 && lng >= 124 && lng <= 132;
   };
 
-  // 지역별 관광지 필터링
-  const getFilteredTouristSpots = () => {
+  // 지역별 장소 필터링
+  const getFilteredPlaces = () => {
     if (!selectedRegion || selectedRegion === "전체") {
-      return touristSpots;
+      return places;
     }
     
-    return touristSpots.filter(spot => {
-      if (spot.addr1) {
-        const address = spot.addr1.toLowerCase();
+    return places.filter(place => {
+      if (place.addr1) {
+        const address = place.addr1.toLowerCase();
         const region = selectedRegion.toLowerCase();
         return address.includes(region) || 
                (region === '경기' && address.includes('경기')) ||
@@ -104,18 +107,18 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
     });
   };
 
-  // 관광지 마커 표시
-  const displayTouristSpots = () => {
+  // 장소 마커 표시
+  const displayPlaces = () => {
     if (!mapRef.current || !window.kakao) return;
 
     // 기존 마커 제거
     touristMarkersRef.current.forEach(marker => marker.setMap(null));
     touristMarkersRef.current = [];
 
-    const filteredSpots = getFilteredTouristSpots();
-    filteredSpots.forEach(spot => {
-      const lat = parseFloat(spot.mapy || spot.lat);
-      const lng = parseFloat(spot.mapx || spot.lon);
+    const filteredPlaces = getFilteredPlaces();
+    filteredPlaces.forEach(place => {
+      const lat = parseFloat(place.mapy || place.latitude);
+      const lng = parseFloat(place.mapx || place.longitude);
       
       if (!isValidCoordinate(lat, lng)) return;
 
@@ -125,12 +128,13 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
       const infoContent = `
         <div style="padding:12px;min-width:250px;max-width:300px;">
           <h4 style="margin:0 0 8px 0;color:#333;font-size:14px;font-weight:bold;">
-            ${spot.title || '제목 없음'}
+            ${place.title || place.place_name || '제목 없음'}
           </h4>
           <p style="margin:0 0 5px 0;color:#666;font-size:12px;">
-            📍 ${spot.addr1 || '주소 없음'}
+            📍 ${place.addr1 || place.address || '주소 없음'}
           </p>
-          ${spot.tel ? `<p style="margin:0;color:#666;font-size:12px;">📞 ${spot.tel}</p>` : ''}
+          ${place.tel || place.phone_number ? `<p style="margin:0 0 5px 0;color:#666;font-size:12px;">📞 ${place.tel || place.phone_number}</p>` : ''}
+          ${place.sport_name ? `<p style="margin:0;color:#007bff;font-size:12px;">🏄 ${place.sport_name}</p>` : ''}
         </div>`;
       
       const infoWindow = new window.kakao.maps.InfoWindow({ content: infoContent });
@@ -267,8 +271,8 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
 
   // 마커 표시
   useEffect(() => {
-      displayTouristSpots();
-  }, [touristSpots, selectedRegion]);
+      displayPlaces();
+  }, [places, selectedRegion]);
 
   useEffect(() => {
       displayMarineStations();
@@ -348,7 +352,7 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
           </label>
         
         <div style={{ fontSize: "12px", color: "#666", borderTop: "1px solid #eee", paddingTop: "8px" }}>
-          관광지: <strong>{getFilteredTouristSpots().length}개</strong> (전체: {touristSpots.length}개)
+          레저장소: <strong>{getFilteredPlaces().length}개</strong> (전체: {places.length}개)
         </div>
 
         <button

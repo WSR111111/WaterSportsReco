@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getSports } from "../api/client";
 
 const REGIONS = [
   { id: "전체", label: "전체", description: "전국 전체 지역" },
@@ -21,7 +22,8 @@ const REGIONS = [
   { id: "제주", label: "제주", description: "제주특별자치도" }
 ];
 
-const WATERSPORTS_CATEGORIES = [
+// 기본 카테고리 (DB에서 데이터를 가져오기 전까지 사용)
+const DEFAULT_WATERSPORTS_CATEGORIES = [
   { id: "A03030100", label: "윈드서핑/제트스키", description: "윈드서핑과 제트스키 체험장 및 관련 시설" },
   { id: "A03030200", label: "카약/카누", description: "카약, 카누 체험장 및 대여소" },
   { id: "A03030300", label: "요트", description: "요트 체험 및 마리나 시설" },
@@ -35,6 +37,8 @@ const WATERSPORTS_CATEGORIES = [
 export default function ActivityFilter({ selectedRegion, onRegionSelect, selectedWaterSport, onWaterSportSelect }) {
   const [isRegionOpen, setIsRegionOpen] = useState(false);
   const [isWaterSportOpen, setIsWaterSportOpen] = useState(false);
+  const [waterSportsCategories, setWaterSportsCategories] = useState(DEFAULT_WATERSPORTS_CATEGORIES);
+  const [loading, setLoading] = useState(false);
 
   const handleRegionSelect = (regionId) => {
     onRegionSelect(regionId);
@@ -45,6 +49,32 @@ export default function ActivityFilter({ selectedRegion, onRegionSelect, selecte
     onWaterSportSelect(waterSportId);
     setIsWaterSportOpen(false);
   };
+
+  // DB에서 스포츠 카테고리 데이터 가져오기
+  useEffect(() => {
+    const fetchSports = async () => {
+      setLoading(true);
+      try {
+        const response = await getSports();
+        if (response?.sports && response.sports.length > 0) {
+          const categories = response.sports.map(sport => ({
+            id: sport.code,
+            label: sport.name,
+            description: `${sport.name} 관련 시설 및 체험장`
+          }));
+          setWaterSportsCategories(categories);
+        }
+      } catch (error) {
+        console.error("❌ Failed to fetch sports categories:", error);
+        // 에러 시 기본 카테고리 사용
+        setWaterSportsCategories(DEFAULT_WATERSPORTS_CATEGORIES);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSports();
+  }, []);
 
   const getSelectedRegionLabel = () => {
       const selectedRegionInfo = REGIONS.find(r => r.id === selectedRegion) || REGIONS[0];
@@ -58,13 +88,13 @@ export default function ActivityFilter({ selectedRegion, onRegionSelect, selecte
 
   const getSelectedWaterSportLabel = () => {
       if (!selectedWaterSport) return "전체 수상레포츠";
-      const selectedWaterSportInfo = WATERSPORTS_CATEGORIES.find(w => w.id === selectedWaterSport);
+      const selectedWaterSportInfo = waterSportsCategories.find(w => w.id === selectedWaterSport);
       return selectedWaterSportInfo ? selectedWaterSportInfo.label : "전체 수상레포츠";
   };
 
   const getSelectedWaterSportDescription = () => {
       if (!selectedWaterSport) return "모든 수상레포츠 관광지 정보";
-      const selectedWaterSportInfo = WATERSPORTS_CATEGORIES.find(w => w.id === selectedWaterSport);
+      const selectedWaterSportInfo = waterSportsCategories.find(w => w.id === selectedWaterSport);
       return selectedWaterSportInfo ? selectedWaterSportInfo.description : "모든 수상레포츠 관광지 정보";
   };
 
@@ -323,7 +353,7 @@ export default function ActivityFilter({ selectedRegion, onRegionSelect, selecte
                 </button>
 
                 {/* 세부 카테고리 옵션들 */}
-                {WATERSPORTS_CATEGORIES.map(waterSport => (
+                {waterSportsCategories.map(waterSport => (
                 <button
                     key={waterSport.id}
                     onClick={() => handleWaterSportSelect(waterSport.id)}
