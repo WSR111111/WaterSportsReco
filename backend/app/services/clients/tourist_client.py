@@ -1,14 +1,7 @@
 from typing import Dict, Any, List, Optional
 import httpx
 import json
-from ..config import TOURIST_API_KEY
-
-
-
-
-
-
-
+from ...config import TOURIST_API_KEY
 
 
 def _parse_leisure_places_json(response_text: str) -> List[Dict[str, Any]]:
@@ -233,7 +226,6 @@ async def fetch_detail_common_json(
         
         # XML 에러 응답 체크 (API 한도 초과 등)
         if response.text.startswith('<OpenAPI_ServiceResponse>'):
-            # 에러 코드 추출
             if 'APPLICATION_ERROR' in response.text:
                 print(f"⚠️ Content not available for content_id {content_id} (APPLICATION_ERROR)")
             elif 'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR' in response.text:
@@ -263,3 +255,119 @@ async def fetch_detail_common_json(
     except Exception as e:
         print(f"❌ Unexpected error fetching detail for content_id {content_id}: {e}")
         return {}
+
+
+def _parse_category_data(response_text: str) -> List[Dict[str, Any]]:
+    """
+    JSON 응답을 파싱하여 카테고리 정보를 반환
+    """
+    try:
+        data = json.loads(response_text)
+        
+        # API 응답 구조 확인
+        response = data.get('response', {})
+        header = response.get('header', {})
+        
+        # 응답 상태 확인
+        result_code = header.get('resultCode', '')
+        if result_code != '0000':
+            result_msg = header.get('resultMsg', 'Unknown error')
+            print(f"❌ API Error: {result_code} - {result_msg}")
+            return []
+        
+        # 데이터 추출
+        body = response.get('body', {})
+        items = body.get('items', {})
+        
+        # item이 리스트인지 단일 객체인지 확인
+        item_data = items.get('item', [])
+        if isinstance(item_data, dict):
+            item_data = [item_data]
+        elif not isinstance(item_data, list):
+            item_data = []
+        
+        categories = []
+        for item in item_data:
+            try:
+                category = {
+                    "code": item.get('code', ''),
+                    "name": item.get('name', ''),
+                    "rnum": item.get('rnum', 0)
+                }
+                
+                # 필수 필드 검증
+                if category["code"] and category["name"]:
+                    categories.append(category)
+                else:
+                    print(f"⚠️ Skipping invalid category: {item}")
+                    
+            except Exception as e:
+                print(f"❌ Error parsing category item: {e}")
+                continue
+        
+        print(f"✅ Parsed {len(categories)} categories from API response")
+        return categories
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {e}")
+        return []
+    except Exception as e:
+        print(f"❌ Unexpected error in category data parsing: {e}")
+        return []
+
+
+async def fetch_category_codes(
+    client: httpx.AsyncClient,
+    content_type_id: str = "28",
+    cat1: str = "A03", 
+    cat2: str = "A0303",
+    num_of_rows: int = 100,
+    page_no: int = 1
+) -> List[Dict[str, Any]]:
+    """
+    한국관광공사 카테고리 코드 API를 호출하여 카테고리 정보를 가져옴
+    """
+    url = "https://apis.data.go.kr/B551011/KorService2/categoryCode2"
+    
+    params = {
+        "serviceKey": TOURIST_API_KEY,
+        "numOfRows": num_of_rows,
+        "pageNo": page_no,
+        "MobileOS": "ETC",
+        "MobileApp": "AppTest",
+        "contentTypeId": content_type_id,
+        "cat1": cat1,
+        "cat2": cat2,
+        "_type": "json"
+    }
+    
+    try:
+        print(f"🔍 Fetching category codes from API...")
+        
+        response = await client.get(url, params=params, timeout=30.0)
+        response.raise_for_status()
+        
+        print(f"✅ API response received (status: {response.status_code})")
+        
+        # JSON 응답 파싱
+        categories = _parse_category_data(response.text)
+        
+        if not categories:
+            print("⚠️ No categories found in API response")
+            return []
+        
+        print(f"✅ Successfully fetched {len(categories)} categories")
+        return categories
+        
+    except httpx.TimeoutException:
+        print("❌ API request timeout (30 seconds)")
+        return []
+    except httpx.HTTPStatusError as e:
+        print(f"❌ HTTP error {e.response.status_code}: {e.response.text}")
+        return []
+    except httpx.RequestError as e:
+        print(f"❌ Network error: {e}")
+        return []
+    except Exception as e:
+        print(f"❌ Unexpected error fetching categories: {e}")
+        return []

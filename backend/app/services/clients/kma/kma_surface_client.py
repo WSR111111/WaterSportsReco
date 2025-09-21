@@ -1,7 +1,7 @@
 import httpx
 from typing import List, Dict, Any
-from ..config import KMA_API_KEY
-from .kma.common import _to_float
+from ....config import KMA_API_KEY
+from .common import _to_float
 
 
 def _parse_surface_obs(text: str) -> List[Dict[str, Any]]:
@@ -36,19 +36,10 @@ def _parse_surface_obs(text: str) -> List[Dict[str, Any]]:
             temp = _to_float(parts[11])         # TA (기온)
             humidity = _to_float(parts[13])     # HM (습도)
             
-            # 파고(WH) - 실제 데이터에서 확인된 위치
-            # wave_height = None
-            
-            # 디버깅: 전체 필드 개수와 마지막 몇 개 필드 확인
-            # print(f"🔍 Station {station_id}: Total fields = {len(parts)}")
-            # if len(parts) >= 45:
-            #     print(f"🔍 Last 10 fields: {parts[-10:]}")
-                
             # WH 파고는 뒤에서 4번째 위치 (BF IR IX 앞)
             if len(parts) >= 4:
                 wh_index = len(parts) - 4  # 뒤에서 4번째
                 wave_height = _to_float(parts[wh_index])
-                # print(f"🌊 Station {station_id}: WH at index {wh_index} = {wave_height} (raw: {parts[wh_index]})")
             
             station = {
                 "station_id": station_id,
@@ -81,26 +72,19 @@ async def fetch_surface_obs(
     """
     KMA 지상 관측 데이터를 가져옴
     API: https://apihub.kma.go.kr/api/typ01/url/kma_sfctm2.php
-    
-    Args:
-        client: HTTP 클라이언트
-        tm1: 시작 시간 (YYYYMMDDHHMM 형식) - tm 파라미터로 사용
-        tm2: 종료 시간 (사용 안 함)
-        stn: 관측소 번호 (빈 값이면 전체)
     """
     url = "https://apihub.kma.go.kr/api/typ01/url/kma_sfctm2.php"
     params = {"authKey": KMA_API_KEY}
     
-    # tm1이 있으면 tm 파라미터로 사용 (API 형식에 맞춤)
     if tm1:
         params["tm"] = tm1
     else:
-        params["tm"] = ""  # 빈 값으로 최신 데이터 요청
+        params["tm"] = ""
         
     if stn:
         params["stn"] = stn
     else:
-        params["stn"] = ""  # 빈 값으로 전체 관측소 요청
+        params["stn"] = ""
     
     params["help"] = ""
     
@@ -108,12 +92,11 @@ async def fetch_surface_obs(
         print(f"🔍 Fetching surface observations from: {url}")
         print(f"🔍 Parameters: {params}")
         
-        r = await client.get(url, params=params, timeout=60)  # 타임아웃 60초로 증가
+        r = await client.get(url, params=params, timeout=60)
         r.raise_for_status()
         
         print(f"📡 Response status: {r.status_code}")
         print(f"📡 Response length: {len(r.text)} characters")
-        
         
         stations = _parse_surface_obs(r.text)
         return stations
@@ -124,20 +107,9 @@ async def fetch_surface_obs(
         return []
 
 
-async def fetch_surface_obs_by_station(
-    client: httpx.AsyncClient,
-    station_id: str,
-    tm1: str | None = None,
-    tm2: str | None = None
-) -> List[Dict[str, Any]]:
-    """특정 관측소의 지상 관측 데이터를 가져옴"""
-    return await fetch_surface_obs(client, tm1=tm1, tm2=None, stn=station_id)
-
-
 def _parse_station_info(text: str) -> List[Dict[str, Any]]:
     """
     stn_inf.php 관측소 정보 응답을 파싱하여 관측소 정보를 반환
-    응답 형식: STN_ID LON LAT STN_SP HT HT_PA HT_TA HT_WD HT_RN STN_CD STN_KO STN_EN FCT_ID LAW_ID BASIN
     """
     lines = [ln for ln in text.splitlines() if ln.strip()]
     
@@ -156,7 +128,7 @@ def _parse_station_info(text: str) -> List[Dict[str, Any]]:
     stations = []
     for line in data_lines:
         parts = line.split()
-        if len(parts) < 13:  # FCT_ID까지 포함하려면 최소 13개 필드 필요
+        if len(parts) < 13:
             continue
         
         try:
@@ -168,11 +140,10 @@ def _parse_station_info(text: str) -> List[Dict[str, Any]]:
             station_name_en = parts[11]  # STN_EN (영문명)
             fct_id = parts[12] if len(parts) > 12 else ""  # FCT_ID (예보구역 ID)
             
-            # 위경도가 유효한 경우만 포함
             if lat is not None and lon is not None and station_id and station_name_ko:
                 station = {
-                    "stnid": station_id,      # DB 테이블 구조에 맞춤
-                    "stn_ko": station_name_ko, # DB 테이블 구조에 맞춤
+                    "stnid": station_id,
+                    "stn_ko": station_name_ko,
                     "station_name_en": station_name_en,
                     "station_code": station_code,
                     "lat": lat,
@@ -195,10 +166,6 @@ async def fetch_surface_station_info(
     """
     KMA 지상 관측소 정보를 가져옴
     API: https://apihub.kma.go.kr/api/typ01/url/stn_inf.php
-    
-    Args:
-        client: HTTP 클라이언트
-        tm: 관측 시간 (YYYYMMDDHHMM 형식, 선택사항)
     """
     url = "https://apihub.kma.go.kr/api/typ01/url/stn_inf.php"
     params = {
@@ -211,7 +178,6 @@ async def fetch_surface_station_info(
     if tm:
         params["tm"] = tm
     else:
-        # 기본값으로 최근 시간 설정
         from datetime import datetime, timedelta
         default_time = datetime.now() - timedelta(hours=1)
         params["tm"] = default_time.strftime("%Y%m%d%H00")
@@ -220,7 +186,7 @@ async def fetch_surface_station_info(
         print(f"🔍 Fetching surface station info from: {url}")
         print(f"🔍 Parameters: {params}")
         
-        r = await client.get(url, params=params, timeout=60)  # 타임아웃 60초로 증가
+        r = await client.get(url, params=params, timeout=60)
         r.raise_for_status()
         
         print(f"📡 Response status: {r.status_code}")
@@ -235,5 +201,3 @@ async def fetch_surface_station_info(
         import traceback
         traceback.print_exc()
         return []
-
-

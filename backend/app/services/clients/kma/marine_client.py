@@ -1,6 +1,6 @@
 import httpx
 from typing import List, Dict, Any
-from ...config import KMA_API_KEY
+from ....config import KMA_API_KEY
 from .common import _to_float, KMAError, KMATimeoutError, KMAParsingError
 
 

@@ -8,3 +8,5 @@
 database/
 
 .env
+
+/backend/**/__pycache__/
