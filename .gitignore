@@ -6,3 +6,5 @@
 /backend/app/services/__pycache__/
 
 database/
+
+.env

@@ -1,172 +1,265 @@
 from typing import Dict, Any, List, Optional
 import httpx
-import xml.etree.ElementTree as ET
+import json
 from ..config import TOURIST_API_KEY
 
 
-def _parse_tourist_data(text: str) -> List[Dict[str, Any]]:
-    """
-    XML 응답을 파싱하여 관광지 정보를 반환
-    """
+
+
+
+
+
+
+
+def _parse_leisure_places_json(response_text: str) -> List[Dict[str, Any]]:
+    """JSON 응답을 파싱하여 레저 장소 정보를 반환"""
     try:
-        root = ET.fromstring(text)
+        data = json.loads(response_text)
         
-        namespaces = {
-            'ns': 'http://www.openapi.or.kr/'
-        }
+        response = data.get('response', {})
+        header = response.get('header', {})
         
-        tourist_spots = []
+        # 응답 상태 확인
+        result_code = header.get('resultCode', '')
+        if result_code != '0000':
+            result_msg = header.get('resultMsg', 'Unknown error')
+            print(f"❌ API Error: {result_code} - {result_msg}")
+            return []
         
-        # item 요소들을 찾기
-        items = root.findall('.//item')
-        if not items:
-            # 네임스페이스가 있는 경우
-            items = root.findall('.//ns:item', namespaces)
+        # 데이터 추출
+        body = response.get('body', {})
+        items = body.get('items', {})
         
-        for item in items:
+        # item이 리스트인지 단일 객체인지 확인
+        item_data = items.get('item', [])
+        if isinstance(item_data, dict):
+            item_data = [item_data]
+        elif not isinstance(item_data, list):
+            item_data = []
+        
+        leisure_places = []
+        for item in item_data:
             try:
-                # 기본 정보
-                content_id = item.find('contentid')
-                title = item.find('title')
-                address = item.find('addr1')
-                address2 = item.find('addr2')
-                map_x = item.find('mapx')  # 경도
-                map_y = item.find('mapy')  # 위도
-                first_image = item.find('firstimage')
-                category = item.find('cat1')
-                tel = item.find('tel')
-                
-                # 지역 관련 정보
-                area_code = item.find('areacode')
-                sigungu_code = item.find('sigungucode')
-                content_type_id = item.find('contenttypeid')
-                
                 # 위경도 변환
                 lat = None
                 lon = None
-                if map_y is not None and map_y.text:
+                if item.get('mapy'):
                     try:
-                        lat = float(map_y.text)
-                    except ValueError:
+                        lat = float(item['mapy'])
+                    except (ValueError, TypeError):
                         pass
-                if map_x is not None and map_x.text:
+                if item.get('mapx'):
                     try:
-                        lon = float(map_x.text)
-                    except ValueError:
+                        lon = float(item['mapx'])
+                    except (ValueError, TypeError):
                         pass
                 
-                tourist_spot = {
-                    "content_id": content_id.text if content_id is not None else "",
-                    "title": title.text if title is not None else "",
-                    "addr1": address.text if address is not None else "",
-                    "addr2": address2.text if address2 is not None else "",
+                place = {
+                    "content_id": item.get('contentid', ''),
+                    "title": item.get('title', ''),
+                    "addr1": item.get('addr1', ''),
+                    "addr2": item.get('addr2', ''),
                     "mapy": lat,
                     "mapx": lon,
-                    "tel": tel.text if tel is not None else "",
-                    "category": category.text if category is not None else "",
-                    "image_url": first_image.text if first_image is not None else "",
-                    "areacode": area_code.text if area_code is not None else "",
-                    "sigungucode": sigungu_code.text if sigungu_code is not None else "",
-                    "contenttypeid": content_type_id.text if content_type_id is not None else "",
+                    "tel": item.get('tel', ''),
+                    "areacode": item.get('areacode', ''),
+                    "sigungucode": item.get('sigungucode', ''),
+                    "cat3": item.get('cat3', ''),
+                    "firstimage": item.get('firstimage', ''),
+                    "firstimage2": item.get('firstimage2', ''),
                     "source": "TOURIST"
                 }
                 
                 # 유효한 위경도가 있는 경우만 포함
                 if lat is not None and lon is not None:
-                    tourist_spots.append(tourist_spot)
+                    leisure_places.append(place)
                     
             except Exception as e:
-                print(f"Error parsing tourist item: {e}")
+                print(f"❌ Error parsing leisure place item: {e}")
                 continue
-    
-        return tourist_spots
         
-    except ET.ParseError as e:
-        print(f"XML parsing error: {e}")
+        print(f"✅ Parsed {len(leisure_places)} leisure places from API response")
+        return leisure_places
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {e}")
         return []
     except Exception as e:
-        print(f"Unexpected error in tourist data parsing: {e}")
+        print(f"❌ Unexpected error in leisure places parsing: {e}")
         return []
 
 
-
-
-
-async def fetch_tourist_spots(
-    client: httpx.AsyncClient, 
+async def fetch_leisure_places_json(
+    client: httpx.AsyncClient,
     area_code: Optional[str] = None,
     sigungu_code: Optional[str] = None,
     content_type_id: str = "28",
-    cat1: Optional[str] = "A03",
-    cat2: Optional[str] = "A0303", 
+    cat1: str = "A03",
+    cat2: str = "A0303",
     cat3: Optional[str] = None,
-    num_of_rows: int = 476,
-    page_no: int = 1
+    num_of_rows: int = 1000,
+    page_no: int = 1,
+    arrange: str = "C"
 ) -> List[Dict[str, Any]]:
-    """관광지 정보를 가져옴"""
-    url = "http://apis.data.go.kr/B551011/KorService2/areaBasedList2"
+    """레저 장소 정보를 JSON으로 가져옴"""
+    url = "https://apis.data.go.kr/B551011/KorService2/areaBasedList2"
     
     params = {
+        "serviceKey": TOURIST_API_KEY,
         "numOfRows": num_of_rows,
         "pageNo": page_no,
         "MobileOS": "ETC",
         "MobileApp": "AppTest",
-        "ServiceKey": TOURIST_API_KEY,
-        "arrange": "A",
-        "contentTypeId": content_type_id
+        "contentTypeId": content_type_id,
+        "cat1": cat1,
+        "cat2": cat2,
+        "arrange": arrange,
+        "_type": "json"
     }
     
-    # 카테고리 파라미터들을 동적으로 추가
-    if cat1:
-        params["cat1"] = cat1
-    if cat2:
-        params["cat2"] = cat2
     if cat3:
         params["cat3"] = cat3
-    
     if area_code:
         params["areaCode"] = area_code
     if sigungu_code:
         params["sigunguCode"] = sigungu_code
     
     try:
-        r = await client.get(url, params=params, timeout=15)
-        r.raise_for_status()
+        print(f"🔍 Fetching leisure places from API...")
         
-        # XML 응답을 파싱 (실제로는 XML 파서 사용 필요)
-        tourist_spots = _parse_tourist_data(r.text)
-        return tourist_spots
+        response = await client.get(url, params=params, timeout=30.0)
+        response.raise_for_status()
         
+        print(f"✅ API response received (status: {response.status_code})")
+        
+        # JSON 응답 파싱
+        leisure_places = _parse_leisure_places_json(response.text)
+        
+        if not leisure_places:
+            print("⚠️ No leisure places found in API response")
+            return []
+        
+        print(f"✅ Successfully fetched {len(leisure_places)} leisure places")
+        return leisure_places
+        
+    except httpx.TimeoutException:
+        print("❌ API request timeout (30 seconds)")
+        return []
+    except httpx.HTTPStatusError as e:
+        print(f"❌ HTTP error {e.response.status_code}: {e.response.text}")
+        return []
+    except httpx.RequestError as e:
+        print(f"❌ Network error: {e}")
+        return []
     except Exception as e:
-        print(f"Error fetching tourist spots: {e}")
+        print(f"❌ Unexpected error fetching leisure places: {e}")
         return []
 
 
-async def fetch_tourist_spot_by_id(
-    client: httpx.AsyncClient, 
+def _parse_detail_common2_json(response_text: str) -> Dict[str, Any]:
+    """detailCommon2 JSON 응답을 파싱하여 상세 정보를 반환"""
+    try:
+        data = json.loads(response_text)
+        
+        response = data.get('response', {})
+        header = response.get('header', {})
+        
+        # 응답 상태 확인
+        result_code = header.get('resultCode', '')
+        if result_code != '0000':
+            result_msg = header.get('resultMsg', 'Unknown error')
+            print(f"❌ API Error: {result_code} - {result_msg}")
+            return {}
+        
+        # 데이터 추출
+        body = response.get('body', {})
+        items = body.get('items', {})
+        
+        # item이 리스트인지 단일 객체인지 확인
+        item_data = items.get('item', {})
+        if isinstance(item_data, list) and len(item_data) > 0:
+            item_data = item_data[0]
+        elif not isinstance(item_data, dict):
+            return {}
+        
+        # detailCommon2 API는 일반적인 상세 정보를 제공
+        detail = {
+            "contentid": item_data.get('contentid', ''),
+            "homepage": item_data.get('homepage', ''),
+            "overview": item_data.get('overview', ''),
+            "title": item_data.get('title', ''),
+            "addr1": item_data.get('addr1', ''),
+            "addr2": item_data.get('addr2', ''),
+            "tel": item_data.get('tel', ''),
+            "firstimage": item_data.get('firstimage', ''),
+            "firstimage2": item_data.get('firstimage2', ''),
+            "zipcode": item_data.get('zipcode', ''),
+            "mapx": item_data.get('mapx', ''),
+            "mapy": item_data.get('mapy', ''),
+            "mlevel": item_data.get('mlevel', ''),
+            "booktour": item_data.get('booktour', ''),
+        }
+        
+        return detail
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {e}")
+        return {}
+    except Exception as e:
+        print(f"❌ Unexpected error in detail parsing: {e}")
+        return {}
+
+
+async def fetch_detail_common_json(
+    client: httpx.AsyncClient,
     content_id: str
 ) -> Dict[str, Any]:
-    """특정 관광지의 상세 정보를 가져옴"""
-    url = "http://apis.data.go.kr/B551011/KorService2/detailCommon"
+    """특정 콘텐츠의 상세 정보를 JSON으로 가져옴"""
+    url = "https://apis.data.go.kr/B551011/KorService2/detailCommon2"
     
     params = {
+        "serviceKey": TOURIST_API_KEY,
         "MobileOS": "ETC",
         "MobileApp": "AppTest",
-        "ServiceKey": TOURIST_API_KEY,
+        "_type": "json",
         "contentId": content_id,
-        "defaultYN": "Y",
-        "firstImageYN": "Y",
-        "addrinfoYN": "Y",
-        "mapinfoYN": "Y",
-        "overviewYN": "Y"
+        "numOfRows": 10,
+        "pageNo": 1
     }
     
     try:
-        r = await client.get(url, params=params, timeout=10)
-        r.raise_for_status()
+        response = await client.get(url, params=params, timeout=15.0)
+        response.raise_for_status()
         
-        return {"content_id": content_id, "raw_response": r.text}
+        # XML 에러 응답 체크 (API 한도 초과 등)
+        if response.text.startswith('<OpenAPI_ServiceResponse>'):
+            # 에러 코드 추출
+            if 'APPLICATION_ERROR' in response.text:
+                print(f"⚠️ Content not available for content_id {content_id} (APPLICATION_ERROR)")
+            elif 'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR' in response.text:
+                print(f"❌ API limit exceeded for content_id {content_id}")
+            else:
+                print(f"❌ API Service Error for content_id {content_id}")
+            return {}
         
+        # JSON 응답 파싱
+        detail = _parse_detail_common2_json(response.text)
+        
+        if not detail:
+            print(f"⚠️ No detail found for content_id: {content_id}")
+            return {}
+        
+        return detail
+        
+    except httpx.TimeoutException:
+        print(f"❌ API request timeout for content_id: {content_id}")
+        return {}
+    except httpx.HTTPStatusError as e:
+        print(f"❌ HTTP error {e.response.status_code} for content_id {content_id}: {e.response.text[:200]}...")
+        return {}
+    except httpx.RequestError as e:
+        print(f"❌ Network error for content_id {content_id}: {e}")
+        return {}
     except Exception as e:
-        print(f"Error fetching tourist spot {content_id}: {e}")
+        print(f"❌ Unexpected error fetching detail for content_id {content_id}: {e}")
         return {}

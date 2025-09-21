@@ -3,11 +3,25 @@
 ## 백엔드 환경변수 (필수)
 backend 폴더에 .env 파일 생성:
 ```
+# 기상청 API 키 (해양/지상 관측소 데이터)
 KMA_API_KEY=your_kma_api_key_here
-KHOA_API_KEY=your_khoa_api_key_here
+
+# 한국관광공사 API 키 (관광지/레저장소 데이터)
+TOURIST_API_KEY=your_tourist_api_key_here
+
+# 카카오 API 키 (지도 서비스)
 KAKAO_API_KEY=your_kakao_rest_api_key_here
 VITE_KAKAO_APPKEY=your_kakao_javascript_key_here
+
+# CORS 허용 도메인
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# MySQL 데이터베이스 설정
+MYSQL_HOST=localhost
+MYSQL_DATABASE=watersportsdb
+MYSQL_USER=watersports_user
+MYSQL_PASSWORD=your_mysql_password_here
+MYSQL_PORT=3306
 ```
 
 ## 프론트엔드 환경변수 (필수)
@@ -45,34 +59,90 @@ npm run dev
 5. 마커 클릭 시 해양 정보가 표시되는지 확인
 
 # 프로젝트 구조
+
+## 백엔드 구조
 ```
-water-sports-reco/
-├── backend/
-│   ├── app/
-│   │   ├── main.py          # FastAPI 앱
-│   │   ├── config.py        # 환경 설정
-│   │   ├── schemas.py       # 데이터 모델
-│   │   └── services/        # 외부 API 클라이언트
-│   │       ├── kma_client.py
-│   │       └── khoa_client.py
-│   └── requirements.txt
-├── frontend/
-│   ├── public/
-│   │   └── geo/
-│   │       └── korea_sido_simple.json  # 시/도 경계 데이터
-│   ├── src/
-│   │   ├── components/      # React 컴포넌트
-│   │   │   ├── MapView.jsx  # 카카오맵 지도
-│   │   │   ├── ChatWindow.jsx
-│   │   │   ├── RegionFilter.jsx
-│   │   │   ├── Header.jsx
-│   │   │   └── Footer.jsx
-│   │   ├── hooks/
-│   │   │   └── useKakaoLoader.js
-│   │   └── App.jsx
-│   ├── vite.config.js
-│   └── package.json
-└── README.md
+backend/
+├── app/
+│   ├── main.py                    # FastAPI 메인 애플리케이션
+│   │                              # - CORS 설정
+│   │                              # - 데이터 동기화 API 엔드포인트
+│   ├── config.py                  # 환경 설정 관리
+│   │                              # - API 키 로드 (.env)
+│   │                              # - CORS 허용 도메인 설정
+│   └── services/                  # 서비스 레이어
+│       ├── sync_service.py        # 메인 동기화 서비스
+│       │                          # - 데이터베이스 연결 관리
+│       │                          # - API 데이터 동기화 로직
+│       │                          # - 해양/지상 관측소 데이터 처리
+│       │                          # - 관광지/레저장소 데이터 처리
+│       ├── kma_surface_client.py  # 기상청 지상 관측소 API 클라이언트
+│       │                          # - 지상 관측소 정보 조회
+│       │                          # - 실시간 기상 데이터 파싱
+│       ├── tourist_client.py      # 한국관광공사 API 클라이언트
+│       │                          # - 레저 장소 정보 조회 (JSON)
+│       │                          # - 장소 상세 정보 조회
+│       └── kma/                   # 기상청 해양 관측소 관련
+│           ├── __init__.py        # 패키지 초기화
+│           ├── common.py          # 공통 유틸리티 함수
+│           │                      # - _to_float() 함수
+│           │                      # - KMA 예외 클래스들
+│           └── marine_client.py   # 기상청 해양 관측소 API 클라이언트
+│                                  # - 해양 관측소 정보 조회
+│                                  # - 해양 관측 데이터 파싱
+└── requirements.txt               # Python 의존성 패키지
+```
+
+### 백엔드 주요 기능
+- **데이터 동기화 API**: 해양/지상 관측소, 관광지 데이터를 외부 API에서 수집
+- **데이터베이스 관리**: MySQL 연결 및 CRUD 작업
+- **API 클라이언트**: 기상청(KMA), 한국관광공사 API 연동
+- **에러 처리**: 타임아웃, 네트워크 오류, 파싱 오류 등 처리
+- **비동기 처리**: httpx를 사용한 비동기 HTTP 요청
+
+### API 엔드포인트
+- `POST /api/sync/marine` - 해양 관측소 데이터 동기화
+- `POST /api/sync/surface` - 지상 관측소 데이터 동기화  
+- `POST /api/sync/leisure-places` - 레저 장소 데이터 동기화
+- `POST /api/sync/place-details` - 장소 상세정보 동기화
+- `POST /api/sync/categories` - 카테고리 코드 동기화
+- `POST /api/sync/regions` - 지역 데이터 동기화
+- `POST /api/sync/ground-stations` - 지상 관측소 정보 동기화
+## 프론트엔드 구조
+```
+frontend/
+├── public/
+│   └── geo/
+│       └── korea_sido_simple.json  # 시/도 경계 GeoJSON 데이터
+├── src/
+│   ├── components/                 # React 컴포넌트
+│   │   ├── MapView.jsx            # 카카오맵 지도 컴포넌트
+│   │   ├── MarineDataView.jsx     # 해양 데이터 표시 컴포넌트
+│   │   ├── ChatWindow.jsx         # AI 챗봇 인터페이스
+│   │   ├── RegionFilter.jsx       # 지역 필터링 컴포넌트
+│   │   ├── ActivityFilter.jsx     # 활동별 필터링 컴포넌트
+│   │   ├── InfoCard.jsx           # 정보 카드 컴포넌트
+│   │   ├── Header.jsx             # 헤더 컴포넌트
+│   │   └── Footer.jsx             # 푸터 컴포넌트
+│   ├── hooks/
+│   │   └── useKakaoLoader.js      # 카카오맵 API 로드 훅
+│   ├── api/
+│   │   └── client.js              # API 클라이언트 설정
+│   ├── App.jsx                    # 메인 앱 컴포넌트
+│   └── main.jsx                   # 앱 진입점
+├── vite.config.js                 # Vite 빌드 설정
+└── package.json                   # Node.js 의존성 패키지
+## 전체 프로젝트 구조
+```
+WaterSportsReco/
+├── backend/                    # 백엔드 (FastAPI)
+├── frontend/                   # 프론트엔드 (React + Vite)
+├── database/                   # MySQL 데이터베이스 파일
+├── docker-compose.yml          # Docker Compose 설정
+├── README.md                   # 프로젝트 문서
+├── TROUBLESHOOTING.md          # 문제 해결 가이드
+├── 기술설계도.md               # 기술 설계 문서
+└── 중간정리.md                 # 프로젝트 중간 정리
 ```
 
 # 주요 기능

@@ -6,9 +6,6 @@ from pathlib import Path
 backend_root = Path(__file__).parent.parent
 env_path = backend_root / ".env"
 
-print(f"🔍 Looking for .env file at: {env_path}")
-print(f"🔍 .env file exists: {env_path.exists()}")
-
 load_dotenv(env_path)
 
 KMA_API_KEY = os.getenv("KMA_API_KEY", "")

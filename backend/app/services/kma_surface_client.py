@@ -1,19 +1,7 @@
 import httpx
 from typing import List, Dict, Any
 from ..config import KMA_API_KEY
-
-
-def _to_float(token: str) -> float | None:
-    """문자열을 float로 변환, 실패시 None 반환"""
-    try:
-        cleaned = token.strip()
-        if not cleaned or cleaned == "-":
-            return None
-        
-        value = float(cleaned)
-        return value
-    except Exception:
-        return None
+from .kma.common import _to_float
 
 
 def _parse_surface_obs(text: str) -> List[Dict[str, Any]]:
@@ -120,7 +108,7 @@ async def fetch_surface_obs(
         print(f"🔍 Fetching surface observations from: {url}")
         print(f"🔍 Parameters: {params}")
         
-        r = await client.get(url, params=params, timeout=15)
+        r = await client.get(url, params=params, timeout=60)  # 타임아웃 60초로 증가
         r.raise_for_status()
         
         print(f"📡 Response status: {r.status_code}")
@@ -168,7 +156,7 @@ def _parse_station_info(text: str) -> List[Dict[str, Any]]:
     stations = []
     for line in data_lines:
         parts = line.split()
-        if len(parts) < 12: 
+        if len(parts) < 13:  # FCT_ID까지 포함하려면 최소 13개 필드 필요
             continue
         
         try:
@@ -178,17 +166,19 @@ def _parse_station_info(text: str) -> List[Dict[str, Any]]:
             station_code = parts[9]      # STN_CD
             station_name_ko = parts[10]  # STN_KO (한글명)
             station_name_en = parts[11]  # STN_EN (영문명)
+            fct_id = parts[12] if len(parts) > 12 else ""  # FCT_ID (예보구역 ID)
             
             # 위경도가 유효한 경우만 포함
-            if lat is not None and lon is not None:
+            if lat is not None and lon is not None and station_id and station_name_ko:
                 station = {
-                    "station_id": station_id,
-                    "station_name": station_name_ko,
+                    "stnid": station_id,      # DB 테이블 구조에 맞춤
+                    "stn_ko": station_name_ko, # DB 테이블 구조에 맞춤
                     "station_name_en": station_name_en,
                     "station_code": station_code,
                     "lat": lat,
                     "lon": lon,
-                    "source": "KMA_SURFACE_INFO"
+                    "fct_id": fct_id,
+                    "source": "KMA_SFC"
                 }
                 stations.append(station)
                 
@@ -230,7 +220,7 @@ async def fetch_surface_station_info(
         print(f"🔍 Fetching surface station info from: {url}")
         print(f"🔍 Parameters: {params}")
         
-        r = await client.get(url, params=params, timeout=15)
+        r = await client.get(url, params=params, timeout=60)  # 타임아웃 60초로 증가
         r.raise_for_status()
         
         print(f"📡 Response status: {r.status_code}")
