@@ -10,34 +10,18 @@ class SyncRegionService:
         self.db = db_manager
         self.region_repo = RegionRepository(db_manager)
     
-    async def sync_regions_from_codes(self, region_codes: List[Dict[str, str]]) -> Dict[str, Any]:
-        """지역 코드 목록으로부터 지역 데이터 동기화"""
+
+    async def sync_regions_from_api(self, num_of_rows: int = 1000) -> Dict[str, Any]:
+        """지역 데이터 동기화"""
         try:
-            print("🗺️ Starting region data sync...")
+            print("🗺️ Starting region data sync from API...")
             
-            if not region_codes:
-                return {"success": False, "message": "No region codes provided", "count": 0}
+            result = await self.region_repo.sync_regions_from_api(num_of_rows)
             
-            created_count = 0
-            for region_code in region_codes:
-                sigungu_code = region_code.get('sigungu_code')
-                area_code = region_code.get('area_code')
-                
-                if not sigungu_code:
-                    continue
-                
-                if await self.region_repo.ensure_region_exists_by_sigungu(sigungu_code, area_code):
-                    created_count += 1
-            
-            return {
-                "success": True,
-                "message": f"Region data synced successfully",
-                "processed_count": len(region_codes),
-                "created_count": created_count
-            }
+            return result
             
         except Exception as e:
-            print(f"❌ Region data sync failed: {e}")
+            print(f"❌ Region data sync from API failed: {e}")
             return {"success": False, "message": str(e), "count": 0}
     
     async def validate_region_codes(self, sigungu_codes: List[str]) -> Dict[str, bool]:

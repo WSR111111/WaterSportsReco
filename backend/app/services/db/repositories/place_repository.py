@@ -35,10 +35,10 @@ class PlaceRepository:
                     print(f"⚠️ Skipping leisure place {title}: missing cat3")
                     continue
                 
-                # 외래키 제약조건 검증 및 필요시 생성
+                # 외래키 제약조건 검증 (region이 존재하는지 확인만)
                 area_code = spot.get('areacode', '')
-                if not await region_repo.ensure_region_exists_by_sigungu(sigungu_code, area_code):
-                    print(f"⚠️ Skipping leisure place {title}: failed to ensure region exists for sigungu_code {sigungu_code}")
+                if not await region_repo.validate_sigungu_code(sigungu_code):
+                    print(f"⚠️ Skipping leisure place {title}: region not found for sigungu_code {sigungu_code}")
                     continue
                 
                 if not await sports_repo.ensure_sport_exists_by_cat3(cat3):

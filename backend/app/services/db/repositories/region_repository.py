@@ -1,5 +1,8 @@
 from typing import List, Dict, Any, Optional
+import httpx
+import asyncio
 from ..manager import DatabaseManager
+from ....config import TOURIST_API_KEY
 
 
 class RegionRepository:
@@ -18,50 +21,115 @@ class RegionRepository:
             print(f"❌ Failed to validate sigungu_code {sigungu_code}: {e}")
             return False
     
-    async def ensure_region_exists_by_sigungu(self, sigungu_code: str, area_code: str = None) -> bool:
-        """시군구 코드에 해당하는 region이 없으면 생성"""
+
+    async def fetch_regions_from_api(self, num_of_rows: int = 1000) -> List[Dict[str, Any]]:
+        """한국관광공사 지역코드 API에서 지역 정보를 가져옴"""
+        url = "https://apis.data.go.kr/B551011/KorService2/ldongCode2"
+        
+        params = {
+            "serviceKey": TOURIST_API_KEY,
+            "numOfRows": num_of_rows,
+            "pageNo": 1,
+            "MobileOS": "ETC",
+            "MobileApp": "APP",
+            "_type": "json",
+            "lDongListYn": "Y"
+        }
+        
         try:
-            # 이미 존재하는지 확인
-            if await self.validate_sigungu_code(sigungu_code):
-                return True
+            print("🗺️ Fetching region data from Korean Tourism API...")
             
-            # 기존 region 테이블 구조 확인
-            try:
-                desc_query = "DESCRIBE region"
-                columns_result = await self.db.execute_query(desc_query)
-                available_columns = [col[0] for col in columns_result] if columns_result else []
-                print(f"🔍 Available region table columns: {available_columns}")
-            except Exception as desc_e:
-                print(f"⚠️ Could not describe region table: {desc_e}")
-                available_columns = []
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, timeout=30.0)
+                response.raise_for_status()
+                
+                data = response.json()
+                
+                if data.get("response", {}).get("header", {}).get("resultCode") != "0000":
+                    print(f"❌ API error: {data.get('response', {}).get('header', {}).get('resultMsg', 'Unknown error')}")
+                    return []
+                
+                items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+                
+                if not items:
+                    print("⚠️ No region data found in API response")
+                    return []
+                
+                regions = []
+                for item in items:
+                    regions.append({
+                        "area_code": item.get("lDongRegnCd"),
+                        "area_name": item.get("lDongRegnNm"),
+                        "sigungu_code": item.get("lDongSignguCd"),
+                        "sigungu_name": item.get("lDongSignguNm")
+                    })
+                
+                print(f"✅ Successfully fetched {len(regions)} regions from API")
+                return regions
+                
+        except httpx.TimeoutException:
+            print("❌ API request timeout (30 seconds)")
+            return []
+        except httpx.HTTPStatusError as e:
+            print(f"❌ HTTP error {e.response.status_code}: {e.response.text}")
+            return []
+        except httpx.RequestError as e:
+            print(f"❌ Network error: {e}")
+            return []
+        except Exception as e:
+            print(f"❌ Unexpected error fetching regions: {e}")
+            return []
+
+    async def sync_regions_from_api(self, num_of_rows: int = 1000) -> Dict[str, Any]:
+        """API에서 지역 데이터를 가져와서 DB에 저장"""
+        try:
+            print("🗺️ Starting region data sync from API...")
             
-            # 실제 테이블 구조에 맞춘 컬럼명 사용
-            region_name = f"지역_{sigungu_code}"
-            sigungu_name = f"시군구_{sigungu_code}"
+            # API에서 지역 데이터 가져오기
+            regions = await self.fetch_regions_from_api(num_of_rows)
             
-            # 동적으로 INSERT 쿼리 생성
-            columns = ['ldong_regn_nm', 'ldong_sigungu_cd', 'ldong_sigungu_nm']
-            values = [region_name, sigungu_code, sigungu_name]
+            if not regions:
+                return {"success": False, "message": "No region data fetched from API", "count": 0}
             
-            # ldong_regn_cd가 있다면 추가 (지역코드)
-            if 'ldong_regn_cd' in available_columns:
-                columns.append('ldong_regn_cd')
-                values.append(area_code or sigungu_code[:2])  # 앞 2자리를 지역코드로 사용
+            # DB에 저장
+            affected_rows = 0
+            for region in regions:
+                try:
+                    area_code = region.get("area_code")
+                    area_name = region.get("area_name")
+                    sigungu_code = region.get("sigungu_code")
+                    sigungu_name = region.get("sigungu_name")
+                    
+                    if not all([area_code, area_name, sigungu_code, sigungu_name]):
+                        continue
+                    
+                    # UPSERT 쿼리 (기존 데이터가 있으면 업데이트, 없으면 삽입)
+                    upsert_query = """
+                        INSERT INTO region (ldong_regn_cd, ldong_regn_nm, ldong_sigungu_cd, ldong_sigungu_nm)
+                        VALUES (%s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                        ldong_regn_nm = VALUES(ldong_regn_nm),
+                        ldong_sigungu_nm = VALUES(ldong_sigungu_nm)
+                    """
+                    
+                    cursor = self.db.connection.cursor()
+                    cursor.execute(upsert_query, (area_code, area_name, sigungu_code, sigungu_name))
+                    affected_rows += cursor.rowcount
+                    cursor.close()
+                    
+                except Exception as e:
+                    print(f"❌ Failed to upsert region {region}: {e}")
+                    continue
             
-            columns_str = ', '.join(columns)
-            placeholders = ', '.join(['%s'] * len(values))
+            print(f"✅ Successfully synced {affected_rows} regions to database")
             
-            insert_query = f"""
-                INSERT INTO region ({columns_str}) 
-                VALUES ({placeholders})
-            """
-            cursor = self.db.connection.cursor()
-            cursor.execute(insert_query, tuple(values))
-            cursor.close()
-            
-            print(f"✅ Created new region for sigungu_code: {sigungu_code}")
-            return True
+            return {
+                "success": True,
+                "message": f"Region data synced successfully from API",
+                "fetched_count": len(regions),
+                "affected_rows": affected_rows
+            }
             
         except Exception as e:
-            print(f"❌ Failed to ensure region exists for sigungu_code {sigungu_code}: {e}")
-            return False
+            print(f"❌ Region data sync from API failed: {e}")
+            return {"success": False, "message": str(e), "count": 0}

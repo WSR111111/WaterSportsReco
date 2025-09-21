@@ -189,7 +189,7 @@ async def get_regions():
     await db_manager.connect()
     
     try:
-        query = "SELECT area_code, area_name, sigungu_code, sigungu_name FROM region ORDER BY area_name, sigungu_name"
+        query = "SELECT ldong_regn_cd, ldong_regn_nm, ldong_sigungu_cd, ldong_sigungu_nm FROM region ORDER BY ldong_regn_nm, ldong_sigungu_nm"
         result = await db_manager.execute_query(query)
         
         regions = []
@@ -211,21 +211,18 @@ async def get_regions():
 #=============================================================================
 
 
-@app.post("/api/sync/regions")
-async def sync_regions_data():
+
+@app.post("/api/sync/regions-from-api")
+async def sync_regions_from_api(
+    num_of_rows: int = Query(1000, description="가져올 최대 지역 수")
+):
     """지역 데이터 동기화"""
     db_manager = DatabaseManager()
     await db_manager.connect()
     
     try:
         service = SyncRegionService(db_manager)
-        # 기본 지역 코드들 (예시)
-        region_codes = [
-            {"sigungu_code": "1", "area_code": "1"},
-            {"sigungu_code": "2", "area_code": "1"},
-            # 필요한 지역 코드들 추가
-        ]
-        return await service.sync_regions_from_codes(region_codes)
+        return await service.sync_regions_from_api(num_of_rows)
     finally:
         await db_manager.disconnect()
 
