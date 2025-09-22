@@ -14,3 +14,6 @@ backend/**/__pycache__/
 
 # 데이터베이스 (로컬 개발용)
 database/
+
+# kiro
+*.kiro/
