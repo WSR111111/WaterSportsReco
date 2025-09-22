@@ -12,8 +12,57 @@ backend/.venv/
 __pycache__/
 backend/**/__pycache__/
 
-# 데이터베이스 (로컬 개발용)
-database/
+# 데이터
+*dbeaver_setting/database/
+*database/
+*.csv
+*.json
+*.pkl
 
 # kiro
 *.kiro/
+
+
+# node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# 빌드 산출물
+dist/
+build/
+
+
+# IDE / 편집기
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+
+# 빌드 & 패키지 관리
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE / 편집기
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 데이터베이스 / 로그
+*.db
+*.sqlite3
+database/
+*.log

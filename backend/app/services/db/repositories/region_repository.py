@@ -128,10 +128,15 @@ class RegionRepository:
                         ldong_sigungu_nm = VALUES(ldong_sigungu_nm)
                     """
                     
-                    cursor = self.db.connection.cursor()
-                    cursor.execute(upsert_query, (area_code, area_name, sigungu_code, sigungu_name))
-                    affected_rows += cursor.rowcount
-                    cursor.close()
+                    # DatabaseManager의 execute_query 대신 직접 실행 (INSERT/UPDATE용)
+                    if self.db.connection and self.db.connection.is_connected():
+                        cursor = self.db.connection.cursor()
+                        cursor.execute(upsert_query, (area_code, area_name, sigungu_code, sigungu_name))
+                        affected_rows += cursor.rowcount
+                        cursor.close()
+                    else:
+                        print("❌ Database connection is not available")
+                        continue
                     
                 except Exception as e:
                     print(f"❌ Failed to upsert region {region}: {e}")

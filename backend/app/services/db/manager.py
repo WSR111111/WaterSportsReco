@@ -42,6 +42,10 @@ class DatabaseManager:
     async def execute_query(self, query: str, params: tuple = None):
         """쿼리 실행"""
         try:
+            if not self.connection or not self.connection.is_connected():
+                print("❌ Database connection is not available")
+                return None
+                
             cursor = self.connection.cursor()
             cursor.execute(query, params or ())
             result = cursor.fetchall()

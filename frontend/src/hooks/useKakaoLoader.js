@@ -6,7 +6,7 @@ export default function useKakaoLoader(appkey, { timeoutMs = 8000 } = {}) {
 
   useEffect(() => {
     if (!appkey) {
-      setState({ loaded: false, error: new Error("카카오맵 API 키가 설정되지 않았습니다") });
+      setState({ loaded: false, error: new Error("VITE_KAKAO_API_KEY 미설정") });
       return;
     }
 
