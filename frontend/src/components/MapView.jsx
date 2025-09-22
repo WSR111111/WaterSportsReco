@@ -3,7 +3,7 @@ import useKakaoLoader from "../hooks/useKakaoLoader";
 import { getPlaces, getMarineStations, getSurfaceStations, getSports } from "../api/client";
 import ActivityFilter from "./ActivityFilter";
 
-const KAKAO_APPKEY = import.meta.env.VITE_KAKAO_APPKEY;
+const KAKAO_APPKEY = null; // 카카오맵 API 키 제거됨
 
 export default function MapView({ selectedRegion, onRegionSelect }) {
   const { loaded, error } = useKakaoLoader(KAKAO_APPKEY);
@@ -286,8 +286,8 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   if (!KAKAO_APPKEY) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", backgroundColor: "#f5f5f5" }}>
-        <h3>카카오맵 API 키가 설정되지 않았습니다</h3>
-        <p>.env 파일에 VITE_KAKAO_APPKEY를 설정해주세요</p>
+        <h3>카카오맵 기능이 비활성화되었습니다</h3>
+        <p>카카오맵 API 키가 제거되었습니다</p>
       </div>
     );
   }

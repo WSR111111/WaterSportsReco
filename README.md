@@ -11,7 +11,6 @@ TOURIST_API_KEY=your_tourist_api_key_here
 
 # 카카오 API 키 (지도 서비스)
 KAKAO_API_KEY=your_kakao_rest_api_key_here
-VITE_KAKAO_APPKEY=your_kakao_javascript_key_here
 
 # CORS 허용 도메인
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
@@ -28,14 +27,12 @@ MYSQL_PORT=3306
 frontend 폴더에 .env 파일 생성:
 ```
 VITE_BACKEND_URL=http://localhost:8000
-VITE_KAKAO_APPKEY=your_kakao_api_key_here
 ```
 
 ### 카카오 API 키 발급 방법
 1. [Kakao Developers](https://developers.kakao.com/)에 접속
 2. 애플리케이션 생성
-3. **프론트엔드용**: JavaScript 키 발급 → VITE_KAKAO_APPKEY
-4. **백엔드용**: REST API 키 발급 → KAKAO_API_KEY
+3. **백엔드용**: REST API 키 발급 → KAKAO_API_KEY
 5. 플랫폼 > Web 플랫폼 등록에서 http://localhost:5173 추가
 
 # 실행 방법

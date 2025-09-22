@@ -10,7 +10,6 @@ load_dotenv(env_path)
 
 KMA_API_KEY = os.getenv("KMA_API_KEY", "")
 KAKAO_API_KEY = os.getenv("KAKAO_API_KEY", "")
-VITE_KAKAO_APPKEY = os.getenv("VITE_KAKAO_APPKEY", "")
 TOURIST_API_KEY = os.getenv("TOURIST_API_KEY", "")
 # 기본 개발 환경 CORS 설정
 DEFAULT_ORIGINS = [
