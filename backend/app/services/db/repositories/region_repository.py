@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 import httpx
 import asyncio
+from urllib.parse import quote_plus
 from ..manager import DatabaseManager
 from ....config import TOURIST_API_KEY
 
@@ -27,7 +28,7 @@ class RegionRepository:
         url = "https://apis.data.go.kr/B551011/KorService2/ldongCode2"
         
         params = {
-            "serviceKey": TOURIST_API_KEY,
+            "serviceKey": quote_plus(TOURIST_API_KEY),
             "numOfRows": num_of_rows,
             "pageNo": 1,
             "MobileOS": "ETC",
@@ -38,12 +39,27 @@ class RegionRepository:
         
         try:
             print("🗺️ Fetching region data from Korean Tourism API...")
+            print(f"🔑 Using API key: {TOURIST_API_KEY[:10]}...")
             
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, params=params, timeout=30.0)
+                print(f"📡 Response status: {response.status_code}")
+                print(f"📄 Response content length: {len(response.content)}")
+                print(f"📝 Response content preview: {response.text[:200]}...")
+                
                 response.raise_for_status()
                 
-                data = response.json()
+                # Check if response is empty
+                if not response.text.strip():
+                    print("❌ Empty response from API")
+                    return []
+                
+                try:
+                    data = response.json()
+                except ValueError as json_error:
+                    print(f"❌ JSON parsing error: {json_error}")
+                    print(f"📄 Raw response: {response.text[:500]}")
+                    return []
                 
                 if data.get("response", {}).get("header", {}).get("resultCode") != "0000":
                     print(f"❌ API error: {data.get('response', {}).get('header', {}).get('resultMsg', 'Unknown error')}")
