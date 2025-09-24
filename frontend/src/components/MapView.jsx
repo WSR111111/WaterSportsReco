@@ -13,7 +13,7 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   const touristMarkersRef = useRef([]);
   const marineMarkersRef = useRef([]);
   const surfaceMarkersRef = useRef([]);
-  
+
   const [places, setPlaces] = useState([]);
   const [marineStations, setMarineStations] = useState([]);
   const [surfaceStations, setSurfaceStations] = useState([]);
@@ -22,7 +22,104 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   const [selectedWaterSport, setSelectedWaterSport] = useState(null);
   const [showMarineStations, setShowMarineStations] = useState(true);
   const [showSurfaceStations, setShowSurfaceStations] = useState(true);
+  const [geoData, setGeoData] = useState(null);
 
+  // GeoJSON 데이터 로드
+  useEffect(() => {
+    fetch('/geo/korea_sido_simple.json')
+      .then(response => response.json())
+      .then(data => {
+        setGeoData(data);
+        console.log('✅ GeoJSON data loaded:', data);
+      })
+      .catch(error => {
+        console.error('❌ Failed to load GeoJSON:', error);
+      });
+  }, []);
+
+  // GeoJSON에서 지역 경계 계산
+  const calculateBounds = (coordinates) => {
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+
+    const processCoordinates = (coords) => {
+      if (Array.isArray(coords[0])) {
+        coords.forEach(processCoordinates);
+      } else {
+        const [lng, lat] = coords;
+        minLat = Math.min(minLat, lat);
+        maxLat = Math.max(maxLat, lat);
+        minLng = Math.min(minLng, lng);
+        maxLng = Math.max(maxLng, lng);
+      }
+    };
+
+    processCoordinates(coordinates);
+
+    return {
+      center: [(minLng + maxLng) / 2, (minLat + maxLat) / 2],
+      bounds: { minLat, maxLat, minLng, maxLng }
+    };
+  };
+
+  // 지역 선택 시 지도 이동 
+  const moveToRegion = (regionName) => {
+    if (!mapRef.current || !window.kakao) return;
+
+    // 전체 선택 시 한국 전체 보기
+    if (!regionName || regionName === "전체") {
+      const center = new window.kakao.maps.LatLng(35.9078, 127.7669);
+      mapRef.current.setCenter(center);
+      mapRef.current.setLevel(13);
+      console.log('🗺️ Moved to 전체 (Korea overview)');
+      return;
+    }
+
+    // GeoJSON 데이터가 로드되지 않은 경우 대기
+    if (!geoData || !geoData.features) {
+      console.warn('⚠️ GeoJSON data not loaded yet');
+      return;
+    }
+
+    // 지역명에서 특별시/광역시/도 제거하여 매칭
+    const cleanRegionName = regionName
+      .replace(/특별시|광역시|특별자치시|특별자치도|도$/g, '')
+      .trim();
+
+    // GeoJSON에서 해당 지역 찾기
+    const feature = geoData.features.find(f => f.properties.name === cleanRegionName);
+
+    if (feature) {
+      const { center, bounds } = calculateBounds(feature.geometry.coordinates);
+      const kakaoCenter = new window.kakao.maps.LatLng(center[1], center[0]);
+
+      // 경계 크기에 따라 동적으로 줌 레벨 조정
+      const latDiff = bounds.maxLat - bounds.minLat;
+      const lngDiff = bounds.maxLng - bounds.minLng;
+      const maxDiff = Math.max(latDiff, lngDiff);
+
+      let level = 11;
+      if (maxDiff > 2.5) level = 11;        // 매우 큰 지역 (강원도 등) - 더 넓게
+      else if (maxDiff > 1.5) level = 11;   // 큰 지역 (경북, 경남 등) - 더 넓게
+      else if (maxDiff > 0.8) level = 11;   // 중간 지역 (경기도 등) - 더 넓게
+      else if (maxDiff > 0.4) level = 11;   // 작은 지역 (충남, 전북 등) - 더 넓게
+      else if (maxDiff > 0.2) level = 11;    // 매우 작은 지역 (인천 등) - 더 넓게
+      else level = 11;                       // 극소 지역 (서울, 부산 등) - 더 넓게
+
+      mapRef.current.setCenter(kakaoCenter);
+      mapRef.current.setLevel(level);
+
+      console.log(`🗺️ Moved to ${regionName} (${cleanRegionName}):`, {
+        center: center,
+        level: level,
+        bounds: bounds,
+        size: maxDiff.toFixed(3)
+      });
+    } else {
+      console.warn(`⚠️ Region not found in GeoJSON: ${regionName} (${cleanRegionName})`);
+      console.log('Available regions:', geoData.features.map(f => f.properties.name));
+    }
+  };
 
   // 데이터 가져오기
   const fetchAllData = async () => {
@@ -35,7 +132,7 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
         getSurfaceStations(),
         getSports()
       ]);
-      
+
       setPlaces(placesData?.places || []);
       setMarineStations(marineData?.stations || []);
       setSurfaceStations(surfaceData?.stations || []);
@@ -79,8 +176,8 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
 
   // 좌표 유효성 검사
   const isValidCoordinate = (lat, lng) => {
-    return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && 
-          lat >= 33 && lat <= 43 && lng >= 124 && lng <= 132;
+    return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 &&
+      lat >= 33 && lat <= 43 && lng >= 124 && lng <= 132;
   };
 
   // 지역별 장소 필터링
@@ -88,20 +185,20 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
     if (!selectedRegion || selectedRegion === "전체") {
       return places;
     }
-    
+
     return places.filter(place => {
       if (place.addr1) {
         const address = place.addr1.toLowerCase();
         const region = selectedRegion.toLowerCase();
-        return address.includes(region) || 
-               (region === '경기' && address.includes('경기')) ||
-               (region === '강원' && address.includes('강원')) ||
-               (region === '충북' && (address.includes('충청북') || address.includes('충북'))) ||
-               (region === '충남' && (address.includes('충청남') || address.includes('충남'))) ||
-               (region === '전북' && (address.includes('전라북') || address.includes('전북'))) ||
-               (region === '전남' && (address.includes('전라남') || address.includes('전남'))) ||
-               (region === '경북' && (address.includes('경상북') || address.includes('경북'))) ||
-               (region === '경남' && (address.includes('경상남') || address.includes('경남')));
+        return address.includes(region) ||
+          (region === '경기' && address.includes('경기')) ||
+          (region === '강원' && address.includes('강원')) ||
+          (region === '충북' && (address.includes('충청북') || address.includes('충북'))) ||
+          (region === '충남' && (address.includes('충청남') || address.includes('충남'))) ||
+          (region === '전북' && (address.includes('전라북') || address.includes('전북'))) ||
+          (region === '전남' && (address.includes('전라남') || address.includes('전남'))) ||
+          (region === '경북' && (address.includes('경상북') || address.includes('경북'))) ||
+          (region === '경남' && (address.includes('경상남') || address.includes('경남')));
       }
       return false;
     });
@@ -119,12 +216,12 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
     filteredPlaces.forEach(place => {
       const lat = parseFloat(place.mapy || place.latitude);
       const lng = parseFloat(place.mapx || place.longitude);
-      
+
       if (!isValidCoordinate(lat, lng)) return;
 
       const position = new window.kakao.maps.LatLng(lat, lng);
       const marker = createMarker(position, mapRef.current);
-      
+
       const infoContent = `
         <div style="padding:12px;min-width:250px;max-width:300px;">
           <h4 style="margin:0 0 8px 0;color:#333;font-size:14px;font-weight:bold;">
@@ -136,15 +233,15 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
           ${place.tel || place.phone_number ? `<p style="margin:0 0 5px 0;color:#666;font-size:12px;">📞 ${place.tel || place.phone_number}</p>` : ''}
           ${place.sport_name ? `<p style="margin:0;color:#007bff;font-size:12px;">🏄 ${place.sport_name}</p>` : ''}
         </div>`;
-      
+
       const infoWindow = new window.kakao.maps.InfoWindow({ content: infoContent });
-      
+
       window.kakao.maps.event.addListener(marker, 'click', () => {
         if (infoWindowRef.current) infoWindowRef.current.close();
         infoWindow.open(mapRef.current, marker);
         infoWindowRef.current = infoWindow;
       });
-      
+
       touristMarkersRef.current.push(marker);
     });
   };
@@ -155,21 +252,21 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
 
     marineMarkersRef.current.forEach(marker => marker.setMap(null));
     marineMarkersRef.current = [];
-    
+
     marineStations.forEach(station => {
       const lat = parseFloat(station.lat);
       const lng = parseFloat(station.lon);
-      
+
       if (!isValidCoordinate(lat, lng)) return;
 
       const position = new window.kakao.maps.LatLng(lat, lng);
       const marker = createMarker(position, mapRef.current, 'marine');
-      
+
       const formatValue = (value, unit = "") => {
         if (value === null || value === undefined || value === -9 || value === -99) return "결측";
         return `${value}${unit}`;
       };
-      
+
       const infoContent = `
         <div style="padding:12px;min-width:280px;font-family:Arial,sans-serif;">
           <h4 style="margin:0 0 8px 0;color:#1976d2;font-size:14px;font-weight:bold;">
@@ -181,15 +278,15 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
             <p style="margin:2px 0;"><strong>관측시각:</strong> ${station.observed_at || "N/A"}</p>
           </div>
         </div>`;
-      
+
       const infoWindow = new window.kakao.maps.InfoWindow({ content: infoContent });
-      
+
       window.kakao.maps.event.addListener(marker, 'click', () => {
         if (infoWindowRef.current) infoWindowRef.current.close();
         infoWindow.open(mapRef.current, marker);
         infoWindowRef.current = infoWindow;
       });
-      
+
       marineMarkersRef.current.push(marker);
     });
   };
@@ -208,12 +305,12 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
     surfaceStations.forEach(station => {
       const lat = parseFloat(station.lat);
       const lng = parseFloat(station.lon);
-      
+
       if (!isValidCoordinate(lat, lng)) return;
 
       const position = new window.kakao.maps.LatLng(lat, lng);
       const marker = createMarker(position, mapRef.current, 'surface');
-      
+
       const formatValue = (value, unit = "") => {
         if (value === null || value === undefined || value === -9 || value === -99) return "결측";
         return `${value}${unit}`;
@@ -230,15 +327,15 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
             <p style="margin:2px 0;"><strong>습도:</strong> ${formatValue(station.humidity, "%")}</p>
           </div>
         </div>`;
-      
+
       const infoWindow = new window.kakao.maps.InfoWindow({ content: infoContent });
-      
+
       window.kakao.maps.event.addListener(marker, 'click', () => {
         if (infoWindowRef.current) infoWindowRef.current.close();
         infoWindow.open(mapRef.current, marker);
         infoWindowRef.current = infoWindow;
       });
-      
+
       surfaceMarkersRef.current.push(marker);
     });
   };
@@ -246,14 +343,14 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   // 지도 초기화
   useEffect(() => {
     if (!loaded || !containerRef.current) return;
-    
+
     try {
       const { kakao } = window;
       if (!kakao?.maps) return;
 
       const center = new kakao.maps.LatLng(35.9078, 127.7669);
       const map = new kakao.maps.Map(containerRef.current, { center, level: 13 });
-        mapRef.current = map;
+      mapRef.current = map;
 
       setTimeout(() => {
         map.relayout();
@@ -271,16 +368,23 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
 
   // 마커 표시
   useEffect(() => {
-      displayPlaces();
+    displayPlaces();
   }, [places, selectedRegion]);
 
   useEffect(() => {
-      displayMarineStations();
+    displayMarineStations();
   }, [marineStations, showMarineStations]);
 
   useEffect(() => {
     displaySurfaceStations();
   }, [surfaceStations, showSurfaceStations]);
+
+  // 지역 선택 시 지도 이동
+  useEffect(() => {
+    if (loaded && mapRef.current) {
+      moveToRegion(selectedRegion);
+    }
+  }, [selectedRegion, loaded]);
 
   // 에러 및 로딩 상태 처리
   if (!KAKAO_APPKEY) {
@@ -315,7 +419,7 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-      
+
       {/* 활동 필터 */}
       <ActivityFilter
         selectedRegion={selectedRegion}
@@ -323,34 +427,34 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
         onRegionSelect={onRegionSelect}
         onWaterSportSelect={setSelectedWaterSport}
       />
-      
+
       {/* 컨트롤 패널 */}
       <div style={{
         position: "absolute", top: "20px", right: "20px", backgroundColor: "white",
         borderRadius: "8px", boxShadow: "0 2px 10px rgba(0,0,0,0.1)", padding: "16px", minWidth: "200px"
       }}>
         <h4 style={{ margin: "0 0 12px 0", fontSize: "14px" }}>표시 옵션</h4>
-        
+
         <label style={{ display: "flex", alignItems: "center", marginBottom: "8px", cursor: "pointer", fontSize: "13px" }}>
-            <input
-              type="checkbox"
-              checked={showMarineStations}
-              onChange={(e) => setShowMarineStations(e.target.checked)}
-              style={{ marginRight: "8px" }}
-            />
+          <input
+            type="checkbox"
+            checked={showMarineStations}
+            onChange={(e) => setShowMarineStations(e.target.checked)}
+            style={{ marginRight: "8px" }}
+          />
           🌊 해양관측소 ({marineStations.length}개)
-          </label>
-          
+        </label>
+
         <label style={{ display: "flex", alignItems: "center", marginBottom: "12px", cursor: "pointer", fontSize: "13px" }}>
-            <input
-              type="checkbox"
-              checked={showSurfaceStations}
-              onChange={(e) => setShowSurfaceStations(e.target.checked)}
-              style={{ marginRight: "8px" }}
-            />
+          <input
+            type="checkbox"
+            checked={showSurfaceStations}
+            onChange={(e) => setShowSurfaceStations(e.target.checked)}
+            style={{ marginRight: "8px" }}
+          />
           🏢 지상관측소 ({surfaceStations.length}개)
-          </label>
-        
+        </label>
+
         <div style={{ fontSize: "12px", color: "#666", borderTop: "1px solid #eee", paddingTop: "8px" }}>
           레저장소: <strong>{getFilteredPlaces().length}개</strong> (전체: {places.length}개)
         </div>
@@ -366,7 +470,7 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
           {loading ? "로딩..." : "새로고침"}
         </button>
       </div>
-      
+
       {/* 로딩 표시 */}
       {loading && (
         <div style={{
