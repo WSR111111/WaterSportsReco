@@ -2,9 +2,9 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-# 백엔드 루트 디렉토리에서 .env 파일 찾기
-backend_root = Path(__file__).parent.parent
-env_path = backend_root / ".env"
+# 프로젝트 루트 디렉토리에서 .env 파일 찾기
+project_root = Path(__file__).parent.parent.parent
+env_path = project_root / ".env"
 
 load_dotenv(env_path)
 

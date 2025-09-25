@@ -32,7 +32,13 @@ export const getSports = async () => {
 
 // 지역 목록 조회
 export const getRegions = async () => {
-  const response = await api.get("/api/regions");
+  const response = await api.get("/api/region/list");
+  return response.data;
+};
+
+// 지역 데이터 동기화
+export const syncRegions = async () => {
+  const response = await api.post("/api/region/sync");
   return response.data;
 };
 

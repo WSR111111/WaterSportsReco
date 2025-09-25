@@ -7,6 +7,11 @@
 *.jsx    text eol=lf
 *.json   text eol=lf
 *.md     text eol=lf
+*.sql    text eol=lf
+*.txt    text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.env    text eol=lf
 
 # 바이너리 파일은 변환하지 않음
 *.png    binary
@@ -14,3 +19,7 @@
 *.jpeg   binary
 *.gif    binary
 *.ico    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.eot    binary
