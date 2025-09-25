@@ -5,4 +5,8 @@ python-dotenv==1.0.1
 pydantic==2.8.2
 mysql-connector-python==9.4.0
 requests==2.31.0
+PyJWT==2.8.0
+bcrypt==4.1.2
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
 
