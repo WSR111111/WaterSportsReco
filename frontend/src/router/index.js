@@ -1,11 +1,15 @@
 /**
- * 라우터 설정
+ * 통합 라우터 설정
  */
 
-// 라우트 정의
+// 다른 라우터들 import
+import { mainRoutes, mainNavigate, isMainPage } from './index_main.js';
+import { placeDetailRoutes, placeDetailNavigate, getPlaceIdFromUrl, isPlaceDetailPage } from './index_PD.js';
+
+// 통합 라우트 정의
 export const routes = {
   // 메인 페이지
-  home: '/',
+  ...mainRoutes,
   
   // 인증 관련 페이지
   auth: {
@@ -15,16 +19,17 @@ export const routes = {
     deleteAccount: '/delete-account'
   },
   
-  // 기타 페이지들 (기존 시스템과 연동)
-  // 필요에 따라 추가
+  // PlaceDetail 페이지
+  ...placeDetailRoutes
 };
 
-// 라우트 네비게이션 함수
+// 통합 네비게이션 함수
 export const navigate = {
-  // 홈으로 이동
-  toHome: () => {
-    window.location.href = routes.home;
-  },
+  // 메인 페이지 네비게이션
+  ...mainNavigate,
+  
+  // PlaceDetail 네비게이션
+  ...placeDetailNavigate,
   
   // 로그인 페이지로 이동
   toLogin: (returnUrl = null) => {
@@ -50,11 +55,6 @@ export const navigate = {
   // 이전 페이지로 이동
   back: () => {
     window.history.back();
-  },
-  
-  // 특정 URL로 이동
-  to: (url) => {
-    window.location.href = url;
   }
 };
 
@@ -120,6 +120,9 @@ export const setupRouteGuards = (authContext) => {
   return 'allow';
 };
 
+// 페이지 타입 확인 함수들 추가
+export { isMainPage, isPlaceDetailPage, getPlaceIdFromUrl };
+
 export default {
   routes,
   navigate,
@@ -127,5 +130,8 @@ export default {
   getCurrentPath,
   isAuthRequiredPath,
   isGuestOnlyPath,
-  setupRouteGuards
+  setupRouteGuards,
+  isMainPage,
+  isPlaceDetailPage,
+  getPlaceIdFromUrl
 };

@@ -3,7 +3,7 @@ import jwt
 import datetime
 
 # 테스트할 토큰 (access_token 또는 refresh_token 넣기)
-token = "여기에_토큰_문자열_붙여넣기"
+token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJldW5qZW9uZzA5MTFAbmF2ZXIuY29tIiwibmFtZSI6Ilx1YjBlNVx1YjBlNSIsImV4cCI6MTc1ODg3MTU5NiwiaWF0IjoxNzU4ODcwNjk2LCJ0eXBlIjoiYWNjZXNzIn0.yVnAfikP16eeYowZQf5bbaWnTrtjIbAOinbJRaGTjr0"
 
 # 서명 검증은 생략 (options={"verify_signature": False})
 decoded = jwt.decode(token, options={"verify_signature": False})
