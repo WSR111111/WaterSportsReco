@@ -1,23 +1,21 @@
 import { useState, useEffect } from "react";
 import { getSports } from "../api/client";
 
-// 기본 카테고리 (DB에서 데이터를 가져오기 전까지 사용)
-const DEFAULT_WATERSPORTS_CATEGORIES = [
-  { id: "A03030100", label: "윈드서핑/제트스키", description: "윈드서핑과 제트스키 체험장 및 관련 시설" },
-  { id: "A03030200", label: "카약/카누", description: "카약, 카누 체험장 및 대여소" },
-  { id: "A03030300", label: "요트", description: "요트 체험 및 마리나 시설" },
-  { id: "A03030400", label: "스노쿨링/스킨스쿠버다이빙", description: "스노쿨링 및 스쿠버다이빙 체험" },
-  { id: "A03030500", label: "민물낚시", description: "민물낚시터 및 관련 시설" },
-  { id: "A03030600", label: "바다낚시", description: "바다낚시 및 선상낚시 체험" },
-  { id: "A03030700", label: "수영", description: "수영장 및 해수욕장 시설" },
-  { id: "A03030800", label: "래프팅", description: "래프팅 체험장 및 관련 시설" }
-];
-
-export default function ActivityFilter({ selectedRegion, onRegionSelect, selectedWaterSport, onWaterSportSelect }) {
+export default function ActivityFilter({ 
+  selectedRegion, 
+  onRegionSelect, 
+  selectedWaterSport, 
+  onWaterSportSelect,
+  showMarineStations,
+  onMarineStationsToggle,
+  showSurfaceStations,
+  onSurfaceStationsToggle
+}) {
   const [isRegionOpen, setIsRegionOpen] = useState(false);
   const [isWaterSportOpen, setIsWaterSportOpen] = useState(false);
+  const [isObservationOpen, setIsObservationOpen] = useState(false);
   const [regions, setRegions] = useState([]);
-  const [waterSportsCategories, setWaterSportsCategories] = useState(DEFAULT_WATERSPORTS_CATEGORIES);
+  const [waterSportsCategories, setWaterSportsCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const handleRegionSelect = (regionId) => {
@@ -30,16 +28,16 @@ export default function ActivityFilter({ selectedRegion, onRegionSelect, selecte
     setIsWaterSportOpen(false);
   };
 
-  // 지역 데이터 가져오기 (GeoJSON 기준)
+  // 지역 데이터 가져오기
   useEffect(() => {
     const loadRegions = async () => {
       try {
         // GeoJSON 데이터 로드
         const geoResponse = await fetch('/geo/korea_sido_simple.json');
         const geoData = await geoResponse.json();
-        
-        console.log("📥 GeoJSON regions:", geoData.features.map(f => f.properties.name));
-        
+
+
+
         // GeoJSON의 지역명을 기준으로 리스트 생성
         const regionsList = [
           { id: "전체", label: "전체", description: "전국 전체 지역" },
@@ -49,9 +47,9 @@ export default function ActivityFilter({ selectedRegion, onRegionSelect, selecte
             description: `${feature.properties.name}`
           }))
         ];
-        
+
         setRegions(regionsList);
-        console.log("✅ GeoJSON regions loaded:", regionsList.length - 1, "지역");
+
         setLoading(false);
       } catch (err) {
         console.error("GeoJSON 로드 실패:", err);
@@ -59,7 +57,7 @@ export default function ActivityFilter({ selectedRegion, onRegionSelect, selecte
         setLoading(false);
       }
     };
-    
+
     loadRegions();
   }, []);
 
@@ -68,19 +66,25 @@ export default function ActivityFilter({ selectedRegion, onRegionSelect, selecte
     const fetchSports = async () => {
       try {
         const sportsResponse = await getSports();
-        if (sportsResponse?.sports && sportsResponse.sports.length > 0) {
-          const categories = sportsResponse.sports.map(sport => ({
-            id: sport.code,
-            label: sport.name,
-            description: `${sport.name} 관련 시설 및 체험장`
+
+        if (sportsResponse && Array.isArray(sportsResponse) && sportsResponse.length > 0) {
+          const categories = sportsResponse.map(sport => ({
+            id: sport.category_code,
+            label: sport.sport_name,
+            description: `${sport.sport_name} 관련 시설 및 체험장`
           }));
           setWaterSportsCategories(categories);
+
+        } else {
+
+          setWaterSportsCategories([]);
         }
       } catch (error) {
-        console.error("스포츠 카테고리 불러오기 실패:", error);
+        console.error("❌ 스포츠 카테고리 불러오기 실패:", error);
+        setWaterSportsCategories([]);
       }
     };
-    
+
     fetchSports();
   }, []);
 
@@ -411,6 +415,100 @@ export default function ActivityFilter({ selectedRegion, onRegionSelect, selecte
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* 관측정보 선택 박스 */}
+      <div style={{
+        backgroundColor: "white",
+        borderRadius: "8px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+        minWidth: "280px",
+        maxWidth: "300px"
+      }}>
+        {/* 관측정보 헤더 */}
+        <div style={{
+          padding: "10px 15px",
+          backgroundColor: "#17a2b8",
+          color: "white",
+          borderRadius: "8px 8px 0 0",
+          fontSize: "13px",
+          fontWeight: "600",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
+        }}>
+          📊 관측정보 표시
+        </div>
+
+        {/* 관측정보 체크박스들 */}
+        <div style={{ padding: "12px 15px" }}>
+          <label style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            marginBottom: "12px", 
+            cursor: "pointer", 
+            fontSize: "14px",
+            padding: "8px",
+            borderRadius: "6px",
+            transition: "background-color 0.2s ease"
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = "#f8f9fa"}
+          onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+          >
+            <input
+              type="checkbox"
+              checked={showMarineStations}
+              onChange={(e) => onMarineStationsToggle(e.target.checked)}
+              style={{ 
+                marginRight: "10px",
+                width: "16px",
+                height: "16px",
+                cursor: "pointer"
+              }}
+            />
+            <div>
+              <div style={{ fontWeight: "500", color: "#1976d2" }}>
+                🌊 해양관측정보
+              </div>
+              <div style={{ fontSize: "12px", color: "#666", marginTop: "2px" }}>
+                수온, 파고, 풍속 등 해양 관측 데이터
+              </div>
+            </div>
+          </label>
+
+          <label style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            cursor: "pointer", 
+            fontSize: "14px",
+            padding: "8px",
+            borderRadius: "6px",
+            transition: "background-color 0.2s ease"
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = "#f8f9fa"}
+          onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+          >
+            <input
+              type="checkbox"
+              checked={showSurfaceStations}
+              onChange={(e) => onSurfaceStationsToggle(e.target.checked)}
+              style={{ 
+                marginRight: "10px",
+                width: "16px",
+                height: "16px",
+                cursor: "pointer"
+              }}
+            />
+            <div>
+              <div style={{ fontWeight: "500", color: "#dc3545" }}>
+                🏢 지상관측정보
+              </div>
+              <div style={{ fontSize: "12px", color: "#666", marginTop: "2px" }}>
+                기온, 습도, 기압 등 지상 관측 데이터
+              </div>
+            </div>
+          </label>
         </div>
       </div>
     </div>

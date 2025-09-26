@@ -12,21 +12,45 @@ export const getPlaces = async (params = {}) => {
   return response.data;
 };
 
-// 해양 관측소 목록 조회
-export const getMarineStations = async (limit = 100) => {
-  const response = await api.get("/api/marine-stations", { params: { limit } });
+// 지도용 레저 장소 목록 조회 (좌표 있는 것만)
+export const getMapPlaces = async (params = {}) => {
+  const response = await api.get("/api/leisure/map/places", { params });
   return response.data;
 };
 
-// 지상 관측소 목록 조회
-export const getSurfaceStations = async (limit = 100) => {
-  const response = await api.get("/api/surface-stations", { params: { limit } });
+// 해양 관측 데이터 조회
+export const getMarineObservations = async (params = {}) => {
+  const response = await api.get("/api/observation/marine", { params });
+  return response.data;
+};
+
+// 지상 관측 데이터 조회
+export const getSurfaceObservations = async (params = {}) => {
+  const response = await api.get("/api/observation/surface", { params });
+  return response.data;
+};
+
+// 관측소 목록 조회
+export const getObservationStations = async (params = {}) => {
+  const response = await api.get("/api/observation/stations", { params });
+  return response.data;
+};
+
+// 해양 관측소 목록 조회 (하위 호환성)
+export const getMarineStations = async () => {
+  const response = await api.get("/api/observation/stations", { params: { category: "MARINE" } });
+  return response.data;
+};
+
+// 지상 관측소 목록 조회 (하위 호환성)
+export const getSurfaceStations = async () => {
+  const response = await api.get("/api/observation/stations", { params: { category: "SURFACE" } });
   return response.data;
 };
 
 // 스포츠 카테고리 목록 조회
 export const getSports = async () => {
-  const response = await api.get("/api/sports");
+  const response = await api.get("/api/sports/list");
   return response.data;
 };
 
@@ -39,6 +63,12 @@ export const getRegions = async () => {
 // 지역 데이터 동기화
 export const syncRegions = async () => {
   const response = await api.post("/api/region/sync");
+  return response.data;
+};
+
+// 특정 장소의 상세 정보 조회
+export const getPlaceDetail = async (contentId) => {
+  const response = await api.get(`/api/leisure/place/${contentId}`);
   return response.data;
 };
 
@@ -60,15 +90,14 @@ export const getTouristSpots = async (params = {}) => {
   return { tourist_spots: response.data.places };
 };
 
-// 하위 호환성을 위해 유지되는 함수들 (사용되지 않을 수 있음)
 export const getMarineSurface = async () => {
   console.warn("getMarineSurface is deprecated, use getMarineStations instead");
   return await getMarineStations();
 };
 
-export const getSurfaceObservations = async (params = {}) => {
-  console.warn("getSurfaceObservations is deprecated, use getSurfaceStations instead");
-  return await getSurfaceStations();
+export const getSurfaceObservationsDeprecated = async (params = {}) => {
+  console.warn("getSurfaceObservationsDeprecated is deprecated, use getSurfaceObservations instead");
+  return await getSurfaceObservations(params);
 };
 
 export const getPlacesInRect = async (rect, activities) => {

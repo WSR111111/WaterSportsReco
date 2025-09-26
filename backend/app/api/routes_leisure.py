@@ -72,3 +72,61 @@ def get_map_places(
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.disconnect()
+
+# 특정 장소의 상세 정보 조회
+@router.get("/leisure/place/{content_id}")
+def get_place_detail(content_id: str):
+    """특정 레저스포츠 장소의 상세 정보 조회"""
+    db = DatabaseManager()
+    if not db.connect():
+        raise HTTPException(status_code=500, detail="DB 연결 실패")
+    
+    try:
+        # 기본 장소 정보와 상세 정보를 조인해서 조회
+        query = """
+        SELECT lp.content_id, lp.category_code, lp.place_name, lp.address, lp.address2,
+               lp.phone_number, lp.latitude, lp.longitude, lp.first_image, lp.first_image2,
+               lp.lDongRegnCd, lp.lDongSignguCd, s.sport_name,
+               pd.homepage, pd.overview,
+               r.lDongRegnNm, r.lDongSignguNm
+        FROM leisure_place lp
+        LEFT JOIN place_detail pd ON lp.content_id = pd.content_id
+        LEFT JOIN sports s ON lp.category_code = s.category_code
+        LEFT JOIN region r ON lp.lDongSignguCd = r.lDongSignguCd
+        WHERE lp.content_id = %s
+        """
+        
+        results = db.execute_query(query, [content_id])
+        
+        if not results:
+            raise HTTPException(status_code=404, detail="해당 장소를 찾을 수 없습니다")
+        
+        row = results[0]
+        place_detail = {
+            "content_id": row[0],
+            "category_code": row[1],
+            "place_name": row[2],
+            "address": row[3],
+            "address2": row[4],
+            "phone_number": row[5],
+            "latitude": float(row[6]) if row[6] else None,
+            "longitude": float(row[7]) if row[7] else None,
+            "first_image": row[8],
+            "first_image2": row[9],
+            "area_code": row[10],
+            "sigungu_code": row[11],
+            "sport_name": row[12],
+            "homepage": row[13],
+            "overview": row[14],
+            "region_name": row[15],
+            "sigungu_name": row[16]
+        }
+        
+        return place_detail
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.disconnect()

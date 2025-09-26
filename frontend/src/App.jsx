@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import MapView from "./components/MapView";
 import ChatWindow from "./components/ChatWindow";
-import MarineDataView from "./components/MarineDataView";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import PlaceDetail from "./pages/PlaceDetail";
 
 // 인증 관련 컴포넌트
 import { AuthProvider } from "./components/auth/AuthContext";
@@ -42,22 +43,6 @@ function MainApp() {
           minWidth: 0  // flex 아이템이 축소될 수 있도록
         }}>
           <MapView selectedRegion={selectedRegion} onRegionSelect={setSelectedRegion} />
-          
-          {/* 해양 데이터 패널 */}
-          <div style={{
-            position: "absolute",
-            top: "20px",
-            left: "320px",
-            width: "350px",
-            maxHeight: "500px",
-            backgroundColor: "white",
-            borderRadius: "12px",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-            zIndex: 10,
-            overflow: "hidden"
-          }}>
-            <MarineDataView />
-          </div>
         </div>
         
         {/* 오른쪽: 채팅창 */}
