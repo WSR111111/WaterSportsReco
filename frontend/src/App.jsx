@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import MapView from "./components/MapView";
 import ChatWindow from "./components/ChatWindow";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
-import PlaceDetail from "./pages/PlaceDetail";
 
 // 인증 관련 컴포넌트
 import { AuthProvider } from "./components/auth/AuthContext";
