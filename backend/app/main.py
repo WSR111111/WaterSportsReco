@@ -7,6 +7,7 @@ from app.api.routes_station import router as station_router
 from app.api.routes_observation import router as observation_router
 from app.api.routes_sports import router as sports_router
 from app.api.routes_leisure import router as leisure_router
+from app.auth.router import auth_router
 
 from app.config import ALLOWED_ORIGINS
 
@@ -31,6 +32,9 @@ app.include_router(station_router, prefix="/api", tags=["Station"])
 app.include_router(observation_router, prefix="/api", tags=["Observation"])
 app.include_router(sports_router, prefix="/api", tags=["Sports"])
 app.include_router(leisure_router, prefix="/api", tags=["Leisure"])
+
+# 인증 라우터 등록
+app.include_router(auth_router, prefix="/api", tags=["Authentication"])
 
 
 @app.get("/")

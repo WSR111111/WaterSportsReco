@@ -1,12 +1,10 @@
-import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { getPlaceDetail } from '../api/client';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { navigate } from '../router';
 
-export default function PlaceDetail() {
-    const { placeId } = useParams();
-    const navigate = useNavigate();
+export default function PlaceDetail({ placeId }) {
     const [placeData, setPlaceData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -89,7 +87,7 @@ export default function PlaceDetail() {
                         </p>
                     )}
                     <button
-                        onClick={() => navigate('/')}
+                        onClick={() => navigate.toHome()}
                         style={{
                             padding: '10px 20px',
                             backgroundColor: '#007bff',
@@ -124,7 +122,7 @@ export default function PlaceDetail() {
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
             }}>
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate.toHome()}
                     style={{
                         backgroundColor: '#6c757d',
                         color: 'white',

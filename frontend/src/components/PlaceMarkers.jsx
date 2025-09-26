@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { navigate } from '../router';
 import { createMarker, isValidCoordinate } from '../utils/markerUtils';
 import { getFilteredPlaces } from '../utils/regionUtils';
 
@@ -10,7 +10,6 @@ export default function PlaceMarkers({
   touristMarkersRef, 
   infoWindowRef 
 }) {
-  const navigate = useNavigate();
   
   // 장소 마커 표시
   const displayPlaces = () => {
@@ -26,7 +25,7 @@ export default function PlaceMarkers({
 
     // 전역 네비게이션 함수 설정
     window.navigateToPlace = (placeId) => {
-      navigate(`/place/${placeId}`);
+      navigate.to(`/place/${placeId}`);
     };
 
     const filteredPlaces = getFilteredPlaces(places, selectedRegion);
