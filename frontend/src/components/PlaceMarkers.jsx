@@ -46,7 +46,7 @@ export default function PlaceMarkers({
             ✕
           </button>
           <h4 style="margin:0 0 8px 0;color:#007bff;font-size:14px;font-weight:bold;cursor:pointer;text-decoration:underline;" 
-              onclick="window.navigateToPlace('${place.id || place.place_name}')">
+              onclick="window.navigateToPlace('${place.content_id}')"
             ${place.place_name || '제목 없음'}
           </h4>
           <p style="margin:0 0 5px 0;color:#666;font-size:12px;">

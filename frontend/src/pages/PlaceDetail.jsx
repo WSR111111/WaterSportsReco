@@ -1,53 +1,64 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { getPlaceDetail } from '../api/client';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
 export default function PlaceDetail() {
     const { placeId } = useParams();
     const navigate = useNavigate();
     const [placeData, setPlaceData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        // TODO: API 호출로 장소 상세 정보 가져오기
-        // const fetchPlaceDetail = async () => {
-        //   try {
-        //     const response = await getPlaceDetail(placeId);
-        //     setPlaceData(response.data);
-        //   } catch (error) {
-        //     console.error('장소 상세 정보 로드 실패:', error);
-        //   } finally {
-        //     setLoading(false);
-        //   }
-        // };
-        // fetchPlaceDetail();
+        const fetchPlaceDetail = async () => {
+            console.log('PlaceDetail - placeId:', placeId);
 
-        // 임시 데이터
-        setTimeout(() => {
-            setPlaceData({
-                id: placeId,
-                name: '플로우하우스 용인',
-                address: '경기도 용인시 처인구 모현읍',
-                sport_name: '윈드서핑/제트스키',
-                description: '최신 시설을 갖춘 수상스포츠 체험장입니다.',
-                phone: '031-123-4567',
-                website: 'https://example.com',
-                operating_hours: '09:00 - 18:00',
-                images: ['/images/yacht.png']
-            });
-            setLoading(false);
-        }, 1000);
+            if (!placeId) {
+                console.error('placeId가 없습니다');
+                setPlaceData(null);
+                setLoading(false);
+                return;
+            }
+
+            try {
+                console.log('API 호출 시작:', placeId);
+                const data = await getPlaceDetail(placeId);
+                console.log('API 응답 데이터:', data);
+                setPlaceData(data);
+                setError(null);
+            } catch (error) {
+                console.error('장소 상세 정보 로드 실패:', error);
+                console.error('Error details:', error.response?.data || error.message);
+                setError(error.response?.data?.detail || error.message || '알 수 없는 오류가 발생했습니다');
+                setPlaceData(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchPlaceDetail();
     }, [placeId]);
 
     if (loading) {
         return (
             <div style={{
                 display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100vh',
+                flexDirection: 'column',
+                minHeight: '100vh',
                 backgroundColor: '#f5f5f5'
             }}>
-                <div>로딩 중...</div>
+                <Header />
+                <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}>
+                    <div>로딩 중...</div>
+                </div>
+                <Footer />
             </div>
         );
     }
@@ -56,33 +67,56 @@ export default function PlaceDetail() {
         return (
             <div style={{
                 display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100vh',
                 flexDirection: 'column',
+                minHeight: '100vh',
                 backgroundColor: '#f5f5f5'
             }}>
-                <h2>장소를 찾을 수 없습니다</h2>
-                <button
-                    onClick={() => navigate('/')}
-                    style={{
-                        padding: '10px 20px',
-                        backgroundColor: '#007bff',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '5px',
-                        cursor: 'pointer'
-                    }}
-                >
-                    홈으로 돌아가기
-                </button>
+                <Header />
+                <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    flexDirection: 'column'
+                }}>
+                    <h2>장소를 찾을 수 없습니다</h2>
+                    <p style={{ color: '#666', marginBottom: '20px' }}>
+                        요청한 ID: {placeId}
+                    </p>
+                    {error && (
+                        <p style={{ color: '#dc3545', marginBottom: '20px', textAlign: 'center' }}>
+                            오류: {error}
+                        </p>
+                    )}
+                    <button
+                        onClick={() => navigate('/')}
+                        style={{
+                            padding: '10px 20px',
+                            backgroundColor: '#007bff',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '5px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        홈으로 돌아가기
+                    </button>
+                </div>
+                <Footer />
             </div>
         );
     }
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
-            {/* 헤더 */}
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100vh',
+            backgroundColor: '#f8f9fa'
+        }}>
+            <Header />
+
+            {/* 장소 정보 헤더 */}
             <div style={{
                 backgroundColor: 'white',
                 padding: '20px',
@@ -105,19 +139,21 @@ export default function PlaceDetail() {
                 </button>
 
                 <h1 style={{ margin: '0 0 10px 0', color: '#333' }}>
-                    {placeData.name}
+                    {placeData.place_name}
                 </h1>
 
                 <p style={{ margin: 0, color: '#007bff', fontSize: '16px' }}>
-                    🏄 {placeData.sport_name}
+                    🏄 {placeData.sport_name || '수상스포츠'}
                 </p>
             </div>
 
             {/* 메인 콘텐츠 */}
             <div style={{
+                flex: 1,
                 maxWidth: '1200px',
                 margin: '0 auto',
-                padding: '30px 20px'
+                padding: '30px 20px',
+                width: '100%'
             }}>
                 <div style={{
                     display: 'grid',
@@ -138,30 +174,37 @@ export default function PlaceDetail() {
 
                         <div style={{ marginBottom: '15px' }}>
                             <strong>📍 주소:</strong>
-                            <p style={{ margin: '5px 0', color: '#666' }}>{placeData.address}</p>
+                            <p style={{ margin: '5px 0', color: '#666' }}>
+                                {placeData.address}
+                                {placeData.address2 && <><br />{placeData.address2}</>}
+                            </p>
                         </div>
+
+                        {placeData.phone_number && (
+                            <div style={{ marginBottom: '15px' }}>
+                                <strong>📞 전화번호:</strong>
+                                <p style={{ margin: '5px 0', color: '#666' }}>{placeData.phone_number}</p>
+                            </div>
+                        )}
 
                         <div style={{ marginBottom: '15px' }}>
-                            <strong>📞 전화번호:</strong>
-                            <p style={{ margin: '5px 0', color: '#666' }}>{placeData.phone}</p>
+                            <strong>🏷️ 지역:</strong>
+                            <p style={{ margin: '5px 0', color: '#666' }}>
+                                {placeData.region_name} {placeData.sigungu_name}
+                            </p>
                         </div>
 
-                        <div style={{ marginBottom: '15px' }}>
-                            <strong>🕐 운영시간:</strong>
-                            <p style={{ margin: '5px 0', color: '#666' }}>{placeData.operating_hours}</p>
-                        </div>
-
-                        {placeData.website && (
+                        {placeData.homepage && (
                             <div style={{ marginBottom: '15px' }}>
                                 <strong>🌐 웹사이트:</strong>
                                 <p style={{ margin: '5px 0' }}>
                                     <a
-                                        href={placeData.website}
+                                        href={placeData.homepage}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         style={{ color: '#007bff', textDecoration: 'none' }}
                                     >
-                                        {placeData.website}
+                                        {placeData.homepage}
                                     </a>
                                 </p>
                             </div>
@@ -177,11 +220,11 @@ export default function PlaceDetail() {
                     }}>
                         <h2 style={{ marginTop: 0, color: '#333' }}>상세 설명</h2>
                         <p style={{ lineHeight: '1.6', color: '#666' }}>
-                            {placeData.description}
+                            {placeData.overview || '상세 설명이 없습니다.'}
                         </p>
 
                         {/* 이미지 갤러리 */}
-                        {placeData.images && placeData.images.length > 0 && (
+                        {(placeData.first_image || placeData.first_image2) && (
                             <div style={{ marginTop: '20px' }}>
                                 <h3 style={{ color: '#333' }}>사진</h3>
                                 <div style={{
@@ -190,11 +233,10 @@ export default function PlaceDetail() {
                                     gap: '15px',
                                     marginTop: '15px'
                                 }}>
-                                    {placeData.images.map((image, index) => (
+                                    {placeData.first_image && (
                                         <img
-                                            key={index}
-                                            src={image}
-                                            alt={`${placeData.name} 이미지 ${index + 1}`}
+                                            src={placeData.first_image}
+                                            alt={`${placeData.place_name} 이미지 1`}
                                             style={{
                                                 width: '100%',
                                                 height: '150px',
@@ -204,7 +246,21 @@ export default function PlaceDetail() {
                                             }}
                                             onError={(e) => e.target.style.display = 'none'}
                                         />
-                                    ))}
+                                    )}
+                                    {placeData.first_image2 && (
+                                        <img
+                                            src={placeData.first_image2}
+                                            alt={`${placeData.place_name} 이미지 2`}
+                                            style={{
+                                                width: '100%',
+                                                height: '150px',
+                                                objectFit: 'cover',
+                                                borderRadius: '8px',
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                            }}
+                                            onError={(e) => e.target.style.display = 'none'}
+                                        />
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -242,6 +298,8 @@ export default function PlaceDetail() {
                     </div>
                 </div>
             </div>
+
+            <Footer />
         </div>
     );
 }

@@ -66,6 +66,12 @@ export const syncRegions = async () => {
   return response.data;
 };
 
+// 특정 장소의 상세 정보 조회
+export const getPlaceDetail = async (contentId) => {
+  const response = await api.get(`/api/leisure/place/${contentId}`);
+  return response.data;
+};
+
 // 기존 API와의 호환성을 위한 래퍼 함수들
 export const getTouristSpots = async (params = {}) => {
   // cat3 파라미터를 cat3로 매핑
@@ -84,7 +90,6 @@ export const getTouristSpots = async (params = {}) => {
   return { tourist_spots: response.data.places };
 };
 
-// 하위 호환성을 위해 유지되는 함수들 (사용되지 않을 수 있음)
 export const getMarineSurface = async () => {
   console.warn("getMarineSurface is deprecated, use getMarineStations instead");
   return await getMarineStations();
