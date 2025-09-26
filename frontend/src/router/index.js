@@ -63,7 +63,7 @@ export const getUrlParams = () => {
   const params = new URLSearchParams(window.location.search);
   const result = {};
   
-  for (const [key, value] = params.entries()) {
+  for (const [key, value] of params.entries()) {
     result[key] = value;
   }
   
