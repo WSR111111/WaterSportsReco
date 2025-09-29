@@ -3,14 +3,14 @@ import { navigate } from '../router';
 import { createMarker, isValidCoordinate } from '../utils/markerUtils';
 import { getFilteredPlaces } from '../utils/regionUtils';
 
-export default function PlaceMarkers({ 
-  places, 
-  selectedRegion, 
-  mapRef, 
-  touristMarkersRef, 
-  infoWindowRef 
+export default function PlaceMarkers({
+  places,
+  selectedRegion,
+  mapRef,
+  touristMarkersRef,
+  infoWindowRef
 }) {
-  
+
   // 장소 마커 표시
   const displayPlaces = () => {
     if (!mapRef.current || !window.kakao) {
@@ -45,7 +45,7 @@ export default function PlaceMarkers({
             ✕
           </button>
           <h4 style="margin:0 0 8px 0;color:#007bff;font-size:14px;font-weight:bold;cursor:pointer;text-decoration:underline;" 
-              onclick="window.navigateToPlace('${place.content_id}')"
+              onclick="window.navigateToPlace('${place.content_id}')">
             ${place.place_name || '제목 없음'}
           </h4>
           <p style="margin:0 0 5px 0;color:#666;font-size:12px;">

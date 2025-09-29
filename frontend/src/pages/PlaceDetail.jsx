@@ -9,6 +9,36 @@ export default function PlaceDetail({ placeId }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // HTML 태그에서 URL을 추출하는 함수
+    const extractUrl = (htmlString) => {
+        if (!htmlString) return null;
+
+        // href 속성에서 URL 추출
+        const hrefMatch = htmlString.match(/href="([^"]+)"/);
+        if (hrefMatch) {
+            return hrefMatch[1];
+        }
+
+        // 일반 URL 패턴 추출
+        const urlMatch = htmlString.match(/(https?:\/\/[^\s<>"]+)/);
+        if (urlMatch) {
+            return urlMatch[1];
+        }
+
+        return htmlString;
+    };
+
+    // URL을 표시용으로 단축하는 함수
+    const formatUrlForDisplay = (url) => {
+        if (!url) return '';
+        try {
+            const urlObj = new URL(url);
+            return urlObj.hostname;
+        } catch {
+            return url;
+        }
+    };
+
     useEffect(() => {
         const fetchPlaceDetail = async () => {
             console.log('PlaceDetail - placeId:', placeId);
@@ -107,9 +137,6 @@ export default function PlaceDetail({ placeId }) {
 
     return (
         <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '100vh',
             backgroundColor: '#f8f9fa'
         }}>
             <Header />
@@ -147,7 +174,6 @@ export default function PlaceDetail({ placeId }) {
 
             {/* 메인 콘텐츠 */}
             <div style={{
-                flex: 1,
                 maxWidth: '1200px',
                 margin: '0 auto',
                 padding: '30px 20px',
@@ -197,12 +223,29 @@ export default function PlaceDetail({ placeId }) {
                                 <strong>🌐 웹사이트:</strong>
                                 <p style={{ margin: '5px 0' }}>
                                     <a
-                                        href={placeData.homepage}
+                                        href={extractUrl(placeData.homepage)}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        style={{ color: '#007bff', textDecoration: 'none' }}
+                                        style={{
+                                            color: '#007bff',
+                                            textDecoration: 'none',
+                                            padding: '8px 12px',
+                                            backgroundColor: '#f8f9fa',
+                                            borderRadius: '5px',
+                                            border: '1px solid #dee2e6',
+                                            display: 'inline-block',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseOver={(e) => {
+                                            e.target.style.backgroundColor = '#e9ecef';
+                                            e.target.style.textDecoration = 'underline';
+                                        }}
+                                        onMouseOut={(e) => {
+                                            e.target.style.backgroundColor = '#f8f9fa';
+                                            e.target.style.textDecoration = 'none';
+                                        }}
                                     >
-                                        {placeData.homepage}
+                                        🔗 {formatUrlForDisplay(extractUrl(placeData.homepage))}
                                     </a>
                                 </p>
                             </div>
