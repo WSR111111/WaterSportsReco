@@ -1,12 +1,15 @@
+"""
+app/main.py
+────────────────────────────────────────────
+- FastAPI 인스턴스 생성 (title, description, version 설정)
+- CORS 허용 도메인 설정
+- 기능별 라우터 등록
+"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # 라우터 import
-from app.api.routes_region import router as region_router
-from app.api.routes_station import router as station_router
-from app.api.routes_observation import router as observation_router
-from app.api.routes_sports import router as sports_router
-from app.api.routes_leisure import router as leisure_router
+from app.api.router_index import router as api_router
 from app.auth.router import auth_router
 
 from app.config import ALLOWED_ORIGINS
@@ -27,11 +30,7 @@ app.add_middleware(
 )
 
 # 라우터 등록
-app.include_router(region_router, prefix="/api", tags=["Region"])
-app.include_router(station_router, prefix="/api", tags=["Station"])
-app.include_router(observation_router, prefix="/api", tags=["Observation"])
-app.include_router(sports_router, prefix="/api", tags=["Sports"])
-app.include_router(leisure_router, prefix="/api", tags=["Leisure"])
+app.include_router(api_router, prefix="/api")
 
 # 인증 라우터 등록
 app.include_router(auth_router, prefix="/api", tags=["Authentication"])

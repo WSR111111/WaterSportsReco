@@ -2,7 +2,7 @@
 사용자 인증 시스템 데이터 모델
 """
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 import re
@@ -107,8 +107,7 @@ class User(UserBase):
     created_at: datetime = Field(..., description="생성일시")
     updated_at: datetime = Field(..., description="수정일시")
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TokenResponse(BaseModel):
     """토큰 응답 모델"""
@@ -125,8 +124,8 @@ class ErrorResponse(BaseModel):
     """에러 응답 모델"""
     error: dict = Field(..., description="에러 정보")
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "error": {
                     "code": "VALIDATION_ERROR",
@@ -138,16 +137,18 @@ class ErrorResponse(BaseModel):
                 }
             }
         }
+    )
 
 class SuccessResponse(BaseModel):
     """성공 응답 모델"""
     message: str = Field(..., description="성공 메시지")
     data: Optional[dict] = Field(None, description="응답 데이터")
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "message": "작업이 성공적으로 완료되었습니다.",
                 "data": {}
             }
         }
+    )

@@ -1,6 +1,13 @@
+"""
+app/utils/kma_client.py
+────────────────────────────────────────────
+- 기상청API를 통해 지상/해양 관측 및 관측소 데이터 불러오기
+"""
+
 from app.utils.api_client import get_text
 from app.config import KMA_API_KEY
 
+# 기상청 API 기본 엔드포인트(URL)
 BASE_URL = "https://apihub.kma.go.kr/api/typ01/url"
 
 # 지상 관측 데이터

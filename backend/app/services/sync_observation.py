@@ -1,7 +1,8 @@
 import re
 from datetime import datetime
 from app.utils.kma_client import fetch_surface_data, fetch_buoy_data
-from app.db.database import DatabaseManager
+from app.database import DatabaseManager
+from app.services.csv_manager import CSVManager
 
 # 지상관측 지표 매핑 (응답 필드 인덱스 → observation_cd)
 # 실제 데이터 구조: YYMMDDHHMI STN WD WS GST GST GST PA PS PT PR TA TD HM PV RN ...
@@ -19,7 +20,7 @@ BUOY_INDICATORS = {
     3: "WS",       # 풍속
     11: "TA",      # 기온
     12: "TW",      # 수온
-    14: "WH_SIG",  # 유의파고
+    14: "WH",      # 유의파고
     16: "WP",      # 파주기
 }
 
@@ -103,15 +104,136 @@ def parse_buoy_response(text: str):
                 })
     return data
 
-def sync_surface_observations(tm: str = None, stn: str = "0", debug: bool = False):
-    """지상관측 데이터 저장"""
-    # tm이 None이면 API가 자동으로 최신 데이터를 반환
+def sync_all_observations(tm: str = None, stn: str = "0", debug: bool = False):
+    """지상관측과 해양관측 데이터를 하나의 observation_data CSV로 저장한 후 DB에 저장"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_manager = CSVManager()
     
+    try:
+        all_csv_data = []
+        
+        # 1단계: 지상관측 API 데이터 수집
+        print("=== 1단계: 지상관측 API 데이터 수집 ===")
+        if debug:
+            print(f"지상관측 요청 시간: {tm if tm else '최신 데이터'}")
+        
+        surface_text = fetch_surface_data(tm, stn)
+        
+        if debug:
+            csv_manager.save_api_response({"raw_text": surface_text, "tm": tm, "stn": stn}, "surface_observations", timestamp)
+        
+        # 2단계: 지상관측 데이터 파싱
+        print("=== 2단계: 지상관측 데이터 파싱 ===")
+        surface_records = parse_surface_response(surface_text, debug)
+        
+        # 지상관측 CSV 데이터 변환
+        for rec in surface_records:
+            csv_row = {
+                "station_id": rec["station_id"],
+                "obs_cd": f"obs_ground_{rec['observation_cd']}",  # obs_ground_TA, obs_ground_WS 등
+                "observation_value": rec["observation_value"],
+                "observed_at": rec["observed_at"].strftime("%Y-%m-%d %H:%M:%S"),
+                "created_at": timestamp
+            }
+            all_csv_data.append(csv_row)
+        
+        print(f"파싱된 지상관측 데이터 수: {len(surface_records)}")
+        
+        # 3단계: 해양관측 API 데이터 수집
+        print("=== 3단계: 해양관측 API 데이터 수집 ===")
+        if debug:
+            print(f"해양관측 요청 시간: {tm if tm else '최신 데이터'}")
+        
+        buoy_text = fetch_buoy_data(tm, stn)
+        
+        if debug:
+            csv_manager.save_api_response({"raw_text": buoy_text, "tm": tm, "stn": stn}, "buoy_observations", timestamp)
+        
+        # 4단계: 해양관측 데이터 파싱
+        print("=== 4단계: 해양관측 데이터 파싱 ===")
+        buoy_records = parse_buoy_response(buoy_text)
+        
+        # 해양관측 CSV 데이터 변환
+        for rec in buoy_records:
+            csv_row = {
+                "station_id": rec["station_id"],
+                "obs_cd": f"obs_ocean_{rec['observation_cd']}",  # obs_ocean_TW, obs_ocean_WH 등
+                "observation_value": rec["observation_value"],
+                "observed_at": rec["observed_at"].strftime("%Y-%m-%d %H:%M:%S"),
+                "created_at": timestamp
+            }
+            all_csv_data.append(csv_row)
+        
+        print(f"파싱된 해양관측 데이터 수: {len(buoy_records)}")
+        print(f"총 관측 데이터 수: {len(all_csv_data)}")
+        
+        # 5단계: 통합 CSV 파일로 저장
+        print("=== 5단계: 통합 observation_data CSV 파일 저장 ===")
+        if all_csv_data:
+            csv_file_path = csv_manager.save_to_csv(all_csv_data, "observation_data", timestamp)
+            
+            # 6단계: CSV에서 읽어서 DB에 저장
+            print("=== 6단계: DB 저장 ===")
+            return save_observations_csv_to_db(csv_file_path, debug)
+        else:
+            return {"status": "success", "count": 0, "message": "저장할 관측 데이터가 없습니다"}
+
+    except Exception as e:
+        return {"status": "fail", "message": str(e)}
+
+
+def save_observations_csv_to_db(csv_file_path: str, debug: bool = False):
+    """CSV 파일에서 관측 데이터를 읽어 DB에 저장"""
     db = DatabaseManager()
     if not db.connect():
         return {"status": "fail", "message": "DB 연결 실패"}
 
     try:
+        csv_manager = CSVManager()
+        items = csv_manager.load_from_csv(csv_file_path)
+        
+        query = """
+        INSERT INTO observation_data (station_id, obs_cd, observation_value, observed_at)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (station_id, obs_cd, observed_at) DO UPDATE SET
+            observation_value = EXCLUDED.observation_value
+        """
+
+        inserted_count = 0
+        for item in items:
+            try:
+                observed_at = datetime.strptime(item["observed_at"], "%Y-%m-%d %H:%M:%S")
+                
+                db.execute_non_query(query, (
+                    item["station_id"],
+                    item["obs_cd"],
+                    float(item["observation_value"]),
+                    observed_at
+                ))
+                inserted_count += 1
+                if debug:
+                    print(f"DB 저장 성공: {item['station_id']}, {item['obs_cd']}, {item['observation_value']}")
+            except Exception as e:
+                if debug:
+                    print(f"DB 저장 실패: {item}, Error: {e}")
+
+        return {"status": "success", "count": len(items), "inserted": inserted_count, "csv_file": csv_file_path}
+
+    except Exception as e:
+        return {"status": "fail", "message": str(e)}
+
+    finally:
+        db.disconnect()
+
+
+def sync_surface_observations(tm: str = None, stn: str = "0", debug: bool = False):
+    """지상관측 데이터를 CSV로 저장한 후 DB에 저장"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_manager = CSVManager()
+    
+    try:
+        # 1단계: API에서 데이터 수집
+        print("=== 1단계: 지상관측 API 데이터 수집 ===")
         if debug:
             print(f"요청 시간: {tm if tm else '최신 데이터'}")
         
@@ -122,8 +244,54 @@ def sync_surface_observations(tm: str = None, stn: str = "0", debug: bool = Fals
             print("=== 전체 응답 내용 ===")
             print(text[:1000])  # 처음 1000자만 출력
         
+        # 2단계: API 응답 원본을 텍스트로 백업
+        print("=== 2단계: API 응답 백업 ===")
+        csv_manager.save_api_response({"raw_text": text, "tm": tm, "stn": stn}, "surface_observations", timestamp)
+        
+        # 3단계: 데이터 파싱
+        print("=== 3단계: 데이터 파싱 ===")
         records = parse_surface_response(text, debug)
+        
+        # 4단계: CSV 형태로 변환
+        print("=== 4단계: CSV 데이터 변환 ===")
+        csv_data = []
+        for rec in records:
+            csv_row = {
+                "station_id": rec["station_id"],
+                "observation_cd": rec["observation_cd"],
+                "observation_value": rec["observation_value"],
+                "observed_at": rec["observed_at"].strftime("%Y-%m-%d %H:%M:%S"),
+                "created_at": timestamp
+            }
+            csv_data.append(csv_row)
+        
+        print(f"파싱된 관측 데이터 수: {len(csv_data)}")
+        
+        # 5단계: CSV 파일로 저장
+        print("=== 5단계: CSV 파일 저장 ===")
+        if csv_data:
+            csv_file_path = csv_manager.save_to_csv(csv_data, "surface_observations", timestamp)
+            
+            # 6단계: CSV에서 읽어서 DB에 저장
+            print("=== 6단계: DB 저장 ===")
+            return _save_surface_observations_csv_to_db(csv_file_path, debug)
+        else:
+            return {"status": "success", "count": 0, "message": "저장할 관측 데이터가 없습니다"}
 
+    except Exception as e:
+        return {"status": "fail", "message": str(e)}
+
+
+def _save_surface_observations_csv_to_db(csv_file_path: str, debug: bool = False):
+    """CSV 파일에서 지상관측 데이터를 읽어 DB에 저장"""
+    db = DatabaseManager()
+    if not db.connect():
+        return {"status": "fail", "message": "DB 연결 실패"}
+
+    try:
+        csv_manager = CSVManager()
+        items = csv_manager.load_from_csv(csv_file_path)
+        
         query = """
         INSERT INTO observation_data (station_id, observation_cd, observation_value, observed_at)
         VALUES (%s, %s, %s, %s)
@@ -133,22 +301,24 @@ def sync_surface_observations(tm: str = None, stn: str = "0", debug: bool = Fals
         """
 
         inserted_count = 0
-        for rec in records:
+        for item in items:
             try:
+                observed_at = datetime.strptime(item["observed_at"], "%Y-%m-%d %H:%M:%S")
+                
                 db.execute_non_query(query, (
-                    rec["station_id"],
-                    rec["observation_cd"],
-                    rec["observation_value"],
-                    rec["observed_at"]
+                    item["station_id"],
+                    item["observation_cd"],
+                    float(item["observation_value"]),
+                    observed_at
                 ))
                 inserted_count += 1
                 if debug:
-                    print(f"DB 저장 성공: {rec['station_id']}, {rec['observation_cd']}, {rec['observation_value']}")
+                    print(f"DB 저장 성공: {item['station_id']}, {item['observation_cd']}, {item['observation_value']}")
             except Exception as e:
                 if debug:
-                    print(f"DB 저장 실패: {rec}, Error: {e}")
+                    print(f"DB 저장 실패: {item}, Error: {e}")
 
-        return {"status": "success", "count": len(records), "inserted": inserted_count, "sample_records": records[:3] if debug else None}
+        return {"status": "success", "count": len(items), "inserted": inserted_count, "csv_file": csv_file_path}
 
     except Exception as e:
         return {"status": "fail", "message": str(e)}
@@ -157,20 +327,66 @@ def sync_surface_observations(tm: str = None, stn: str = "0", debug: bool = Fals
         db.disconnect()
 
 def sync_buoy_observations(tm: str = None, stn: str = "0", debug: bool = False):
-    """해양관측 데이터 저장"""
-    # tm이 None이면 API가 자동으로 최신 데이터를 반환
+    """해양관측 데이터를 CSV로 저장한 후 DB에 저장"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_manager = CSVManager()
     
+    try:
+        # 1단계: API에서 데이터 수집
+        print("=== 1단계: 해양관측 API 데이터 수집 ===")
+        if debug:
+            print(f"해양관측 요청 시간: {tm if tm else '최신 데이터'}")
+        
+        text = fetch_buoy_data(tm, stn)
+        
+        # 2단계: API 응답 원본을 텍스트로 백업
+        print("=== 2단계: API 응답 백업 ===")
+        csv_manager.save_api_response({"raw_text": text, "tm": tm, "stn": stn}, "buoy_observations", timestamp)
+        
+        # 3단계: 데이터 파싱
+        print("=== 3단계: 데이터 파싱 ===")
+        records = parse_buoy_response(text)
+        
+        # 4단계: CSV 형태로 변환
+        print("=== 4단계: CSV 데이터 변환 ===")
+        csv_data = []
+        for rec in records:
+            csv_row = {
+                "station_id": rec["station_id"],
+                "observation_cd": rec["observation_cd"],
+                "observation_value": rec["observation_value"],
+                "observed_at": rec["observed_at"].strftime("%Y-%m-%d %H:%M:%S"),
+                "created_at": timestamp
+            }
+            csv_data.append(csv_row)
+        
+        print(f"파싱된 해양관측 데이터 수: {len(csv_data)}")
+        
+        # 5단계: CSV 파일로 저장
+        print("=== 5단계: CSV 파일 저장 ===")
+        if csv_data:
+            csv_file_path = csv_manager.save_to_csv(csv_data, "buoy_observations", timestamp)
+            
+            # 6단계: CSV에서 읽어서 DB에 저장
+            print("=== 6단계: DB 저장 ===")
+            return _save_buoy_observations_csv_to_db(csv_file_path, debug)
+        else:
+            return {"status": "success", "count": 0, "message": "저장할 해양관측 데이터가 없습니다"}
+
+    except Exception as e:
+        return {"status": "fail", "message": str(e)}
+
+
+def _save_buoy_observations_csv_to_db(csv_file_path: str, debug: bool = False):
+    """CSV 파일에서 해양관측 데이터를 읽어 DB에 저장"""
     db = DatabaseManager()
     if not db.connect():
         return {"status": "fail", "message": "DB 연결 실패"}
 
     try:
-        if debug:
-            print(f"해양관측 요청 시간: {tm if tm else '최신 데이터'}")
+        csv_manager = CSVManager()
+        items = csv_manager.load_from_csv(csv_file_path)
         
-        text = fetch_buoy_data(tm, stn)
-        records = parse_buoy_response(text)
-
         query = """
         INSERT INTO observation_data (station_id, observation_cd, observation_value, observed_at)
         VALUES (%s, %s, %s, %s)
@@ -179,15 +395,25 @@ def sync_buoy_observations(tm: str = None, stn: str = "0", debug: bool = False):
             observed_at = VALUES(observed_at)
         """
 
-        for rec in records:
-            db.execute_non_query(query, (
-                rec["station_id"],
-                rec["observation_cd"],
-                rec["observation_value"],
-                rec["observed_at"]
-            ))
+        inserted_count = 0
+        for item in items:
+            try:
+                observed_at = datetime.strptime(item["observed_at"], "%Y-%m-%d %H:%M:%S")
+                
+                db.execute_non_query(query, (
+                    item["station_id"],
+                    item["observation_cd"],
+                    float(item["observation_value"]),
+                    observed_at
+                ))
+                inserted_count += 1
+                if debug:
+                    print(f"DB 저장 성공: {item['station_id']}, {item['observation_cd']}, {item['observation_value']}")
+            except Exception as e:
+                if debug:
+                    print(f"DB 저장 실패: {item}, Error: {e}")
 
-        return {"status": "success", "count": len(records)}
+        return {"status": "success", "count": len(items), "inserted": inserted_count, "csv_file": csv_file_path}
 
     except Exception as e:
         return {"status": "fail", "message": str(e)}

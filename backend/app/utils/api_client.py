@@ -1,3 +1,9 @@
+"""
+app/utils/api_client.py
+────────────────────────────────────────────
+- 외부 API GET 요청 처리 
+"""
+
 import requests
 import time
 import urllib3
@@ -5,6 +11,7 @@ import urllib3
 # SSL 경고 억제 (개발 환경용)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Json 응답을 가져오는 GET 요청 함수
 def get_json(url: str, params: dict = None, retries: int = 3):
     """공통 GET 요청 함수 (재시도 포함)"""
     for attempt in range(retries):
@@ -25,16 +32,18 @@ def get_json(url: str, params: dict = None, retries: int = 3):
             print(f"API 요청 실패 (시도 {attempt + 1}/{retries}), 5초 후 재시도...")
             time.sleep(5)
 
+# 텍스트 응답용 GET 요청함수
 def get_text(url: str, params: dict = None, encoding: str = None):
     """텍스트 응답을 위한 GET 요청 함수"""
-    response = requests.get(url, params=params, timeout=30)  # 30초 타임아웃
+    response = requests.get(url, params=params, timeout=90)  # 30초 타임아웃
     response.raise_for_status()
     if encoding:
         response.encoding = encoding
     return response.text
 
+# 원시 Response 객체 반환 함수
 def get_response(url: str, params: dict = None):
     """원시 응답 객체를 반환하는 GET 요청 함수"""
-    response = requests.get(url, params=params, timeout=30)  # 30초 타임아웃
+    response = requests.get(url, params=params, timeout=90)  # 30초 타임아웃
     response.raise_for_status()
     return response

@@ -1,14 +1,29 @@
+"""
+app/utils/tourapi_client.py
+────────────────────────────────────────────
+- 한국관공사 TourAPI 데이터 수집
+1. 지역 코드
+2. 수상스포츠 카테고리 조회
+3. 수상스포츠 시설 목록 조회
+4. 수상스포츠 시설 상세정보 조회
+"""
+
 from app.utils.api_client import get_json
 from app.config import TOURIST_API_KEY
 
+# Tour API 기본 엔드포인트(URL)
 BASE_URL = "http://apis.data.go.kr/B551011/KorService2" 
 
 def fetch_region(area_code: str = None):
-    """지역 코드 전체 조회 (페이지네이션 포함)"""
-    url = f"{BASE_URL}/ldongCode2"
+    """
+    지역 코드 전체 조회 (시·도 및 시군구)
+    areaCode가 None이면 전국 시·도 리스트,
+    areaCode 지정 시 해당 지역의 시군구 리스트 반환
+    """
+    url = f"{BASE_URL}/areaCode2"
 
     page_no = 1
-    num_rows = 10  # 타임아웃 방지를 위해 작은 단위로 시작
+    num_rows = 50
     all_items = []
     last_response = None
 
@@ -20,23 +35,19 @@ def fetch_region(area_code: str = None):
             "MobileOS": "ETC",
             "MobileApp": "APP",
             "_type": "json",
-            "lDongListYn": "Y"
         }
         if area_code:
             params["areaCode"] = area_code
 
-        # 디버깅을 위한 URL 출력
         print(f"요청 URL: {url}")
         print(f"요청 파라미터: {params}")
-        
-        # 실제 요청 URL 확인
+
         import urllib.parse
         query_string = urllib.parse.urlencode(params)
-        full_url = f"{url}?{query_string}"
-        print(f"전체 URL: {full_url}")
-        
+        print(f"전체 URL: {url}?{query_string}")
+
         data = get_json(url, params)
-        last_response = data  # 마지막 응답 저장
+        last_response = data
 
         body = data.get("response", {}).get("body", {})
         items = body.get("items", {}).get("item", [])
@@ -44,21 +55,29 @@ def fetch_region(area_code: str = None):
         if not items:
             break
 
+        # 하위 지역도 코드에 prefix 붙여 구분
+        for item in items:
+            if area_code:
+                item["upperCode"] = f"reg{int(area_code):02d}"  # 예: reg01
+                item["fullCode"] = f"{item['upperCode']}{int(item['code']):02d}"  # 예: reg0101
+            else:
+                item["upperCode"] = "reg"
+                item["fullCode"] = f"reg{int(item['code']):02d}"
+
         all_items.extend(items)
 
         total_count = body.get("totalCount", 0)
-        # 다 가져왔으면 중단
         if page_no * num_rows >= total_count:
             break
-
         page_no += 1
 
-    # 원래 API 구조 유지하면서 합쳐진 결과 리턴
     if last_response:
         last_response["response"]["body"]["items"]["item"] = all_items
         last_response["response"]["body"]["numOfRows"] = len(all_items)
         last_response["response"]["body"]["totalCount"] = len(all_items)
+
     return last_response
+
 
 
 # 스포츠 카테고리 조회 
