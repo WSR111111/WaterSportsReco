@@ -51,7 +51,7 @@ export default function PlaceMarkers({
           <p style="margin:0 0 5px 0;color:#666;font-size:12px;">
             📍 ${place.address || '주소 없음'}
           </p>
-          ${place.sport_name ? `<p style="margin:0;color:#007bff;font-size:12px;">🏄 ${place.sport_name}</p>` : ''}
+          ${place.category_name ? `<p style="margin:0;color:#007bff;font-size:12px;">🏄 ${place.category_name}</p>` : ''}
           ${place.first_image ? `<img src="${place.first_image}" alt="장소 이미지" style="width:100%;max-width:200px;height:auto;margin-top:8px;border-radius:4px;" onerror="this.style.display='none'">` : ''}
         </div>`;
 

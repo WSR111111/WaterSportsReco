@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import useKakaoLoader from "../hooks/useKakaoLoader";
 import useMapNavigation from "../hooks/useMapNavigation";
-import { getMapPlaces, getObservationStations, getMarineObservations, getSurfaceObservations } from "../api/client";
+import { useLeisurePlaces, useObservationStations, useObservationDataByType } from "../hooks/useData";
 import ActivityFilter from "./ActivityFilter";
 import PlaceMarkers from "./PlaceMarkers";
 import MarineStationMarkers from "./MarineStationMarkers";
@@ -19,14 +19,28 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   const marineMarkersRef = useRef([]);
   const surfaceMarkersRef = useRef([]);
 
-  const [places, setPlaces] = useState([]);
+  // 실제 DB 데이터 사용 - 지역 필터링은 프론트엔드에서 처리
+  const { places, loading: placesLoading } = useLeisurePlaces({
+    limit: 1000  // 모든 데이터를 가져와서 프론트엔드에서 필터링
+  });
 
-  const [marineStations, setMarineStations] = useState([]);
-  const [surfaceStations, setSurfaceStations] = useState([]);
-  const [marineObservations, setMarineObservations] = useState([]);
-  const [surfaceObservations, setSurfaceObservations] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { stations: marineStations, loading: marineLoading } = useObservationStations('obs_ocean');
+  const { stations: surfaceStations, loading: surfaceLoading } = useObservationStations('obs_ground');
+  const { observations: marineObservations, loading: marineObsLoading, error: marineObsError } = useObservationDataByType('marine');
+  const { observations: surfaceObservations, loading: surfaceObsLoading, error: surfaceObsError } = useObservationDataByType('surface');
+
+  // 관측 데이터 에러 로깅
+  useEffect(() => {
+    if (marineObsError) {
+      console.error('🌊 해양 관측 데이터 에러:', marineObsError);
+    }
+    if (surfaceObsError) {
+      console.error('🏢 지상 관측 데이터 에러:', surfaceObsError);
+    }
+  }, [marineObsError, surfaceObsError]);
+
   const [selectedWaterSport, setSelectedWaterSport] = useState(null);
+  const loading = placesLoading || marineLoading || surfaceLoading || marineObsLoading || surfaceObsLoading;
 
   const [showMarineStations, setShowMarineStations] = useState(false);
   const [showSurfaceStations, setShowSurfaceStations] = useState(false);
@@ -49,73 +63,7 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   // 지도 네비게이션 훅 사용
   useMapNavigation(mapRef, geoData, selectedRegion, loaded);
 
-  // 데이터 가져오기
-  const fetchAllData = async () => {
-    setLoading(true);
-
-
-    try {
-      const params = {};
-      if (selectedWaterSport) {
-        params.category_code = selectedWaterSport;
-
-      }
-
-
-
-      // 각 API를 개별적으로 호출하여 어느 것이 실패하는지 확인
-      let placesData, marineStationsData, surfaceStationsData, marineObsData, surfaceObsData;
-
-      try {
-        placesData = await getMapPlaces(params);
-      } catch (error) {
-        console.error('❌ Places fetch failed:', error);
-        placesData = { places: [] };
-      }
-
-
-
-      try {
-        marineStationsData = await getObservationStations({ category: "MARINE" });
-      } catch (error) {
-        console.error('❌ Marine stations fetch failed:', error);
-        marineStationsData = { stations: [] };
-      }
-
-      try {
-        surfaceStationsData = await getObservationStations({ category: "SURFACE" });
-      } catch (error) {
-        console.error('❌ Surface stations fetch failed:', error);
-        surfaceStationsData = { stations: [] };
-      }
-
-      try {
-        marineObsData = await getMarineObservations();
-      } catch (error) {
-        console.error('❌ Marine observations fetch failed:', error);
-        marineObsData = { stations: [] };
-      }
-
-      try {
-        surfaceObsData = await getSurfaceObservations();
-      } catch (error) {
-        console.error('❌ Surface observations fetch failed:', error);
-        surfaceObsData = { stations: [] };
-      }
-
-      setPlaces(placesData?.places || []);
-      setMarineStations(marineStationsData?.stations || []);
-      setSurfaceStations(surfaceStationsData?.stations || []);
-      setMarineObservations(marineObsData?.stations || []);
-      setSurfaceObservations(surfaceObsData?.stations || []);
-
-
-    } catch (error) {
-      console.error("❌ Unexpected error in fetchAllData:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 기존 fetchAllData 함수 제거 - 이제 useData 훅을 사용
 
 
 
@@ -142,10 +90,7 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
     }
   }, [loaded]);
 
-  // 데이터 로드
-  useEffect(() => {
-    if (loaded) fetchAllData();
-  }, [loaded, selectedWaterSport, selectedRegion]);
+  // 기존 데이터 로드 useEffect 제거 - 이제 useData 훅이 자동으로 처리
 
 
 
