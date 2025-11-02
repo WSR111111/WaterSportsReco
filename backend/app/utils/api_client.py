@@ -35,7 +35,7 @@ def get_json(url: str, params: dict = None, retries: int = 3):
 # 텍스트 응답용 GET 요청함수
 def get_text(url: str, params: dict = None, encoding: str = None):
     """텍스트 응답을 위한 GET 요청 함수"""
-    response = requests.get(url, params=params, timeout=90)  # 30초 타임아웃
+    response = requests.get(url, params=params, timeout=180)  # 30초 타임아웃
     response.raise_for_status()
     if encoding:
         response.encoding = encoding
@@ -44,6 +44,6 @@ def get_text(url: str, params: dict = None, encoding: str = None):
 # 원시 Response 객체 반환 함수
 def get_response(url: str, params: dict = None):
     """원시 응답 객체를 반환하는 GET 요청 함수"""
-    response = requests.get(url, params=params, timeout=90)  # 30초 타임아웃
+    response = requests.get(url, params=params, timeout=180)  # 30초 타임아웃
     response.raise_for_status()
     return response

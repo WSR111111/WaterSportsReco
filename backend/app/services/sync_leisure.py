@@ -140,6 +140,12 @@ def save_leisure_csv_to_db(csv_file_path: str):
                 print(f"Longitude 변환 오류 - content_id: {content_id}, value: '{item.get('longitude')}', error: {e}")
                 longitude = None
             area_code_val = item.get("area_code")  # CSV 컬럼명에 맞게 수정
+            # ✅ 지역코드 prefix 자동 추가 (ex. 1 → reg01)
+            if area_code_val and not str(area_code_val).startswith("reg"):
+                try:
+                    area_code_val = f"reg{int(area_code_val):02d}"
+                except ValueError:
+                    area_code_val = None
             first_image = item.get("first_image")
             first_image2 = item.get("first_image2")
 

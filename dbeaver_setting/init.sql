@@ -19,7 +19,8 @@ INSERT INTO code (code, code_desc, code_name, upper_code)
 VALUES
 ('reg', 'root', '지역코드 루트', NULL),
 ('cat', 'root', '스포츠카테고리 루트', NULL),
-('obs', 'root', '지표 루트', NULL)
+('obs', 'root', '지표 루트', NULL),
+('forecast', 'root', '예보 루트', NULL)
 ON CONFLICT (code) DO NOTHING;
 
 -- 해양지표 그룹
@@ -41,6 +42,35 @@ VALUES
 ('obs_ground_WD', 'obs_cd', '풍향(바람이 불어오는 방향)', 'obs_ground'),
 ('obs_ground_WS', 'obs_cd', '풍속(바람의 속도)', 'obs_ground'),
 ('obs_ground_RN', 'obs_cd', '강수량(비의 양)', 'obs_ground');
+
+-- 육상 예보 (ground)
+INSERT INTO code (code, code_desc, code_name, upper_code)
+VALUES
+('forecast_ground', 'forecast_cd', '육상 예보', 'forecast'),
+('forecast_ground_W1', 'forecast_cd', '예보 시작지점 풍향', 'forecast_ground'),
+('forecast_ground_W2', 'forecast_cd', '예보 종료지점 풍향', 'forecast_ground'),
+('forecast_ground_TA', 'forecast_cd', '기온', 'forecast_ground'),
+('forecast_ground_ST', 'forecast_cd', '강수확률', 'forecast_ground'),
+('forecast_ground_SKY', 'forecast_cd', '하늘상태코드', 'forecast_ground'),
+('forecast_ground_PREP', 'forecast_cd', '강수유무코드', 'forecast_ground'),
+('forecast_ground_WF', 'forecast_cd', '예보 텍스트', 'forecast_ground')
+ON CONFLICT (code) DO NOTHING;
+
+-- 해상 예보 (ocean)
+INSERT INTO code (code, code_desc, code_name, upper_code)
+VALUES
+('forecast_ocean', 'forecast_cd', '해상 예보', 'forecast'),
+('forecast_ocean_W1', 'forecast_cd', '예보 시작지점 풍향', 'forecast_ocean'),
+('forecast_ocean_W2', 'forecast_cd', '예보 종료지점 풍향', 'forecast_ocean'),
+('forecast_ocean_S1', 'forecast_cd', '풍속(시작값)', 'forecast_ocean'),
+('forecast_ocean_S2', 'forecast_cd', '풍속(종료값)', 'forecast_ocean'),
+('forecast_ocean_WH1', 'forecast_cd', '파고(시작값)', 'forecast_ocean'),
+('forecast_ocean_WH2', 'forecast_cd', '파고(종료값)', 'forecast_ocean'),
+('forecast_ocean_PREP', 'forecast_cd', '강수유무코드', 'forecast_ocean'),
+('forecast_ocean_SKY', 'forecast_cd', '하늘상태코드', 'forecast_ocean'),
+('forecast_ocean_WF', 'forecast_cd', '예보 텍스트', 'forecast_ocean')
+ON CONFLICT (code) DO NOTHING;
+
 
 -- 관측소 테이블
 CREATE TABLE observation_station (
@@ -81,6 +111,62 @@ CREATE TABLE observation_data (
 
 ALTER TABLE observation_data ADD CONSTRAINT unique_observation 
 UNIQUE (station_id, obs_cd, observed_at);
+
+-- ------------------------------------------------------------------------------------
+-- 단기 예보 관측소 및 관측값 테이블
+-- ------------------------------------------------------------------------------------
+CREATE TABLE short_term_station (
+    station_id VARCHAR(10) PRIMARY KEY,         -- 예보구역코드 (REG_ID)
+    reg_sp CHAR(3),                         -- 구역특성 (A~P)
+    reg_name VARCHAR(100),                  -- 예보구역명 (REG_NAME)
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 단기 예보 관측값 테이블
+CREATE TABLE observation_data_short (
+    id SERIAL PRIMARY KEY,
+    station_id VARCHAR(10) NOT NULL,          -- 예보구역코드
+    obs_code VARCHAR(50) NOT NULL,            -- 관측항목 코드 (code 테이블 참조)
+    obs_value VARCHAR(100),                   -- 예보값 (WF가 텍스트인 경우도 있음)
+    tm_fc TIMESTAMP NOT NULL,                 -- 발표시각
+    tm_ef TIMESTAMP NOT NULL,                 -- 발효시각
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT fk_obs_code_short
+        FOREIGN KEY (obs_code) REFERENCES code (code)
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_station_short
+        FOREIGN KEY (station_id) REFERENCES short_term_station (station_id)
+        ON DELETE CASCADE
+);
+-- ------------------------------------------------------------------------------------
+-- 중기 예보 관측소 및 관측값 테이블
+-- ------------------------------------------------------------------------------------
+CREATE TABLE medium_term_station (
+    reg_id VARCHAR(10) PRIMARY KEY,         -- 예보구역코드 (REG_ID)
+    reg_sp CHAR(3),                         -- 구역특성 (A:육상, C:도시, H:해상)
+    reg_name VARCHAR(100),                  -- 예보구역명 (REG_NAME)
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 중기 예보 관측값 테이블
+CREATE TABLE observation_data_medium (
+    id SERIAL PRIMARY KEY,
+    station_id VARCHAR(10) NOT NULL,          -- 예보구역코드
+    obs_code VARCHAR(50) NOT NULL,            -- 관측항목 코드 (code 테이블 참조)
+    obs_value VARCHAR(100),
+    tm_fc TIMESTAMP NOT NULL,                 -- 발표시각
+    tm_ef TIMESTAMP,                          -- 발효시각(없을 수도 있음)
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT fk_obs_code_medium
+        FOREIGN KEY (obs_code) REFERENCES code (code)
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_station_medium
+        FOREIGN KEY (station_id) REFERENCES medium_term_station (reg_id)
+        ON DELETE CASCADE
+);
+
 
 
 -- 수상 스포츠 사업장 테이블
