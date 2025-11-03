@@ -183,7 +183,7 @@ def sync_all_observations(tm: str = None, stn: str = "0", debug: bool = False):
 
 
 def save_observations_csv_to_db(csv_file_path: str, debug: bool = False):
-    """CSV 파일에서 관측 데이터를 읽어 DB에 저장"""
+    """CSV 파일에서 관측 데이터를 읽어 DB에 저장 (기존 데이터 삭제 후 새로 삽입)"""
     db = DatabaseManager()
     if not db.connect():
         return {"status": "fail", "message": "DB 연결 실패"}
@@ -192,11 +192,17 @@ def save_observations_csv_to_db(csv_file_path: str, debug: bool = False):
         csv_manager = CSVManager()
         items = csv_manager.load_from_csv(csv_file_path)
         
-        query = """
+        # 1단계: 기존 observation_data 테이블 데이터 삭제
+        print("=== 기존 observation_data 데이터 삭제 ===")
+        delete_query = "DELETE FROM observation_data"
+        db.execute_non_query(delete_query, ())
+        if debug:
+            print("기존 observation_data 테이블 데이터 모두 삭제 완료")
+        
+        # 2단계: 새로운 데이터 삽입
+        insert_query = """
         INSERT INTO observation_data (station_id, obs_cd, observation_value, observed_at)
         VALUES (%s, %s, %s, %s)
-        ON CONFLICT (station_id, obs_cd, observed_at) DO UPDATE SET
-            observation_value = EXCLUDED.observation_value
         """
 
         inserted_count = 0
@@ -204,7 +210,7 @@ def save_observations_csv_to_db(csv_file_path: str, debug: bool = False):
             try:
                 observed_at = datetime.strptime(item["observed_at"], "%Y-%m-%d %H:%M:%S")
                 
-                db.execute_non_query(query, (
+                db.execute_non_query(insert_query, (
                     item["station_id"],
                     item["obs_cd"],
                     float(item["observation_value"]),
@@ -283,7 +289,7 @@ def sync_surface_observations(tm: str = None, stn: str = "0", debug: bool = Fals
 
 
 def _save_surface_observations_csv_to_db(csv_file_path: str, debug: bool = False):
-    """CSV 파일에서 지상관측 데이터를 읽어 DB에 저장"""
+    """CSV 파일에서 지상관측 데이터를 읽어 DB에 저장 (기존 지상관측 데이터 삭제 후 새로 삽입)"""
     db = DatabaseManager()
     if not db.connect():
         return {"status": "fail", "message": "DB 연결 실패"}
@@ -292,12 +298,17 @@ def _save_surface_observations_csv_to_db(csv_file_path: str, debug: bool = False
         csv_manager = CSVManager()
         items = csv_manager.load_from_csv(csv_file_path)
         
-        query = """
-        INSERT INTO observation_data (station_id, observation_cd, observation_value, observed_at)
+        # 기존 지상관측 데이터 삭제
+        print("=== 기존 지상관측 데이터 삭제 ===")
+        delete_query = "DELETE FROM observation_data WHERE obs_cd LIKE 'obs_ground_%'"
+        db.execute_non_query(delete_query, ())
+        if debug:
+            print("기존 지상관측 데이터 삭제 완료")
+        
+        # 새로운 데이터 삽입
+        insert_query = """
+        INSERT INTO observation_data (station_id, obs_cd, observation_value, observed_at)
         VALUES (%s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            observation_value = VALUES(observation_value),
-            observed_at = VALUES(observed_at)
         """
 
         inserted_count = 0
@@ -378,7 +389,7 @@ def sync_buoy_observations(tm: str = None, stn: str = "0", debug: bool = False):
 
 
 def _save_buoy_observations_csv_to_db(csv_file_path: str, debug: bool = False):
-    """CSV 파일에서 해양관측 데이터를 읽어 DB에 저장"""
+    """CSV 파일에서 해양관측 데이터를 읽어 DB에 저장 (기존 해양관측 데이터 삭제 후 새로 삽입)"""
     db = DatabaseManager()
     if not db.connect():
         return {"status": "fail", "message": "DB 연결 실패"}
@@ -387,12 +398,17 @@ def _save_buoy_observations_csv_to_db(csv_file_path: str, debug: bool = False):
         csv_manager = CSVManager()
         items = csv_manager.load_from_csv(csv_file_path)
         
-        query = """
-        INSERT INTO observation_data (station_id, observation_cd, observation_value, observed_at)
+        # 기존 해양관측 데이터 삭제
+        print("=== 기존 해양관측 데이터 삭제 ===")
+        delete_query = "DELETE FROM observation_data WHERE obs_cd LIKE 'obs_ocean_%'"
+        db.execute_non_query(delete_query, ())
+        if debug:
+            print("기존 해양관측 데이터 삭제 완료")
+        
+        # 새로운 데이터 삽입
+        insert_query = """
+        INSERT INTO observation_data (station_id, obs_cd, observation_value, observed_at)
         VALUES (%s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            observation_value = VALUES(observation_value),
-            observed_at = VALUES(observed_at)
         """
 
         inserted_count = 0
@@ -420,3 +436,4 @@ def _save_buoy_observations_csv_to_db(csv_file_path: str, debug: bool = False):
 
     finally:
         db.disconnect()
+

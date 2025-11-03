@@ -83,11 +83,19 @@ export const useObservationData = (stationId = null, obsCode = null) => {
         
         // 백엔드에서 관측소별로 그룹화된 데이터를 받음
         // 각 항목은 { station_id, station_nm, observations: [...] } 구조
-        const processedData = (response.data || []).map(stationData => ({
-          station_id: stationData.station_id,
-          station_nm: stationData.station_nm,
-          observations: stationData.observations || []
-        }));
+        const processedData = (response.data || []).map(stationData => {
+          // observations 배열을 평면화하여 각 관측값을 개별 객체로 변환
+          const flattenedObservations = (stationData.observations || []).map(obs => ({
+            station_id: stationData.station_id,
+            station_nm: stationData.station_nm,
+            obs_cd: obs.obs_cd,
+            obs_name: obs.obs_name,
+            observation_value: obs.observation_value,
+            observed_at: obs.observed_at
+          }));
+          
+          return flattenedObservations;
+        }).flat(); // 중첩 배열을 평면화
         
         setObservations(processedData);
         setError(null);
@@ -135,7 +143,7 @@ export const useObservationDataByType = (stationType) => {
         }
         
         console.log(`📡 API 호출: obs_cd=${obsCodePattern}`);
-        const params = { obs_cd: obsCodePattern };
+        const params = { obs_cd: obsCodePattern, limit: 1000 }; // limit을 1000으로 증가
         const response = await getObservationData(params);
         
         console.log(`📥 API 응답:`, response);
@@ -151,19 +159,21 @@ export const useObservationDataByType = (stationType) => {
         const processedData = response.data.map(stationData => {
           if (!stationData || typeof stationData !== 'object') {
             console.warn('❌ 잘못된 관측소 데이터 형식:', stationData);
-            return null;
+            return [];
           }
           
-          const processed = {
-            station_id: stationData.station_id || '',
-            station_nm: stationData.station_nm || '',
-            observations: Array.isArray(stationData.observations) ? stationData.observations : []
-          };
+          console.log(`📊 관측소 ${stationData.station_id} (${stationData.station_nm}): ${(stationData.observations || []).length}개 관측값`);
           
-          console.log(`📊 관측소 ${processed.station_id} (${processed.station_nm}): ${processed.observations.length}개 관측값`);
-          
-          return processed;
-        }).filter(Boolean); // null 값 제거
+          // observations 배열을 평면화하여 각 관측값을 개별 객체로 변환
+          return (stationData.observations || []).map(obs => ({
+            station_id: stationData.station_id,
+            station_nm: stationData.station_nm,
+            obs_cd: obs.obs_cd,
+            obs_name: obs.obs_name,
+            observation_value: obs.observation_value,
+            observed_at: obs.observed_at
+          }));
+        }).flat(); // 중첩 배열을 평면화
         
         setObservations(processedData);
         console.log(`✅ ${stationType} 관측 데이터 로드 완료: ${processedData.length}개 관측소`);

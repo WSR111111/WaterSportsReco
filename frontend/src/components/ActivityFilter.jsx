@@ -6,16 +6,12 @@ export default function ActivityFilter({
   onRegionSelect, 
   selectedWaterSport, 
   onWaterSportSelect,
-  showMarineStations,
-  onMarineStationsToggle,
-  showSurfaceStations,
-  onSurfaceStationsToggle,
-  stationFilter,
-  onStationFilterChange
+  showObservationStations,
+  onObservationStationsToggle
 }) {
   const [isRegionOpen, setIsRegionOpen] = useState(false);
   const [isWaterSportOpen, setIsWaterSportOpen] = useState(false);
-  const [isObservationOpen, setIsObservationOpen] = useState(false);
+
   const [regions, setRegions] = useState([]);
   const [waterSportsCategories, setWaterSportsCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,17 +64,18 @@ export default function ActivityFilter({
     const fetchSports = async () => {
       try {
         const sportsResponse = await getSports();
+        console.log("스포츠 카테고리 응답:", sportsResponse);
 
-        if (sportsResponse && Array.isArray(sportsResponse) && sportsResponse.length > 0) {
-          const categories = sportsResponse.map(sport => ({
-            id: sport.category_code,
-            label: sport.sport_name,
-            description: `${sport.sport_name} 관련 시설 및 체험장`
+        if (sportsResponse && sportsResponse.success && Array.isArray(sportsResponse.categories)) {
+          const categories = sportsResponse.categories.map(sport => ({
+            id: sport.code,
+            label: sport.code_name,
+            description: `${sport.code_name} 관련 시설 및 체험장`
           }));
           setWaterSportsCategories(categories);
-
+          console.log("카테고리 설정 완료:", categories);
         } else {
-
+          console.log("카테고리 데이터가 없거나 형식이 잘못됨");
           setWaterSportsCategories([]);
         }
       } catch (error) {
@@ -443,7 +440,7 @@ export default function ActivityFilter({
           📊 관측정보 표시
         </div>
 
-        {/* 관측정보 체크박스들 */}
+        {/* 관측정보 체크박스 */}
         <div style={{ padding: "12px 15px" }}>
           <label style={{ 
             display: "flex", 
@@ -460,8 +457,11 @@ export default function ActivityFilter({
           >
             <input
               type="checkbox"
-              checked={showMarineStations}
-              onChange={(e) => onMarineStationsToggle(e.target.checked)}
+              checked={showObservationStations}
+              onChange={(e) => {
+                console.log('🔄 관측소 정보 체크박스 클릭:', e.target.checked);
+                onObservationStationsToggle(e.target.checked);
+              }}
               style={{ 
                 marginRight: "10px",
                 width: "16px",
@@ -470,142 +470,16 @@ export default function ActivityFilter({
               }}
             />
             <div>
-              <div style={{ fontWeight: "500", color: "#1976d2" }}>
-                🌊 해양관측정보
+              <div style={{ fontWeight: "500", color: "#17a2b8" }}>
+                📊 관측소 정보
               </div>
               <div style={{ fontSize: "12px", color: "#666", marginTop: "2px" }}>
-                수온, 파고, 풍속 등 해양 관측 데이터
+                해양/지상 관측소 및 관측 데이터 표시
               </div>
             </div>
           </label>
 
-          <label style={{ 
-            display: "flex", 
-            alignItems: "center", 
-            marginBottom: "12px",
-            cursor: "pointer", 
-            fontSize: "14px",
-            padding: "8px",
-            borderRadius: "6px",
-            transition: "background-color 0.2s ease"
-          }}
-          onMouseEnter={(e) => e.target.style.backgroundColor = "#f8f9fa"}
-          onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
-          >
-            <input
-              type="checkbox"
-              checked={showSurfaceStations}
-              onChange={(e) => onSurfaceStationsToggle(e.target.checked)}
-              style={{ 
-                marginRight: "10px",
-                width: "16px",
-                height: "16px",
-                cursor: "pointer"
-              }}
-            />
-            <div>
-              <div style={{ fontWeight: "500", color: "#dc3545" }}>
-                🏢 지상관측정보
-              </div>
-              <div style={{ fontSize: "12px", color: "#666", marginTop: "2px" }}>
-                기온, 습도, 기압 등 지상 관측 데이터
-              </div>
-            </div>
-          </label>
 
-          {/* 관측소 필터링 옵션 */}
-          {(showMarineStations || showSurfaceStations) && (
-            <div style={{
-              marginTop: "12px",
-              padding: "8px",
-              backgroundColor: "#f8f9fa",
-              borderRadius: "6px",
-              border: "1px solid #e9ecef"
-            }}>
-              <div style={{ 
-                fontSize: "12px", 
-                fontWeight: "600", 
-                color: "#495057", 
-                marginBottom: "8px" 
-              }}>
-                📍 관측소 표시 옵션
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  cursor: "pointer", 
-                  fontSize: "13px"
-                }}>
-                  <input
-                    type="radio"
-                    name="stationFilter"
-                    value="active_only"
-                    checked={stationFilter === 'active_only'}
-                    onChange={(e) => onStationFilterChange && onStationFilterChange(e.target.value)}
-                    style={{ 
-                      marginRight: "8px",
-                      width: "14px",
-                      height: "14px",
-                      cursor: "pointer"
-                    }}
-                  />
-                  <span style={{ color: "#28a745", fontWeight: "500" }}>
-                    ✅ 활성 관측소만 (데이터 있음)
-                  </span>
-                </label>
-
-                <label style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  cursor: "pointer", 
-                  fontSize: "13px"
-                }}>
-                  <input
-                    type="radio"
-                    name="stationFilter"
-                    value="all"
-                    checked={stationFilter === 'all'}
-                    onChange={(e) => onStationFilterChange && onStationFilterChange(e.target.value)}
-                    style={{ 
-                      marginRight: "8px",
-                      width: "14px",
-                      height: "14px",
-                      cursor: "pointer"
-                    }}
-                  />
-                  <span style={{ color: "#6c757d", fontWeight: "500" }}>
-                    📍 모든 관측소 (비활성 포함)
-                  </span>
-                </label>
-
-                <label style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  cursor: "pointer", 
-                  fontSize: "13px"
-                }}>
-                  <input
-                    type="radio"
-                    name="stationFilter"
-                    value="inactive_only"
-                    checked={stationFilter === 'inactive_only'}
-                    onChange={(e) => onStationFilterChange && onStationFilterChange(e.target.value)}
-                    style={{ 
-                      marginRight: "8px",
-                      width: "14px",
-                      height: "14px",
-                      cursor: "pointer"
-                    }}
-                  />
-                  <span style={{ color: "#dc3545", fontWeight: "500" }}>
-                    ❌ 비활성 관측소만 (데이터 없음)
-                  </span>
-                </label>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

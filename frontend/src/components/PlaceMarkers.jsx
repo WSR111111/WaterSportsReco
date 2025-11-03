@@ -6,6 +6,7 @@ import { getFilteredPlaces } from '../utils/regionUtils';
 export default function PlaceMarkers({ 
   places, 
   selectedRegion, 
+  selectedWaterSport,
   mapRef, 
   touristMarkersRef, 
   infoWindowRef 
@@ -28,7 +29,14 @@ export default function PlaceMarkers({
       navigate.to(`/place/${placeId}`);
     };
 
-    const filteredPlaces = getFilteredPlaces(places, selectedRegion);
+    let filteredPlaces = getFilteredPlaces(places, selectedRegion);
+    
+    // 카테고리 필터링 추가
+    if (selectedWaterSport) {
+      filteredPlaces = filteredPlaces.filter(place => place.cat_cd === selectedWaterSport);
+      console.log(`카테고리 ${selectedWaterSport}로 필터링된 장소:`, filteredPlaces.length);
+    }
+    
     filteredPlaces.forEach(place => {
       const lat = parseFloat(place.latitude);
       const lng = parseFloat(place.longitude);
@@ -69,7 +77,7 @@ export default function PlaceMarkers({
 
   useEffect(() => {
     displayPlaces();
-  }, [places, selectedRegion]);
+  }, [places, selectedRegion, selectedWaterSport]);
 
   return null; // 이 컴포넌트는 UI를 렌더링하지 않음
 }

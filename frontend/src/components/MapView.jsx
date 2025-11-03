@@ -4,8 +4,7 @@ import useMapNavigation from "../hooks/useMapNavigation";
 import { useLeisurePlaces, useObservationStations, useObservationDataByType } from "../hooks/useData";
 import ActivityFilter from "./ActivityFilter";
 import PlaceMarkers from "./PlaceMarkers";
-import MarineStationMarkers from "./MarineStationMarkers";
-import SurfaceStationMarkers from "./SurfaceStationMarkers";
+import ObservationStationMarkers from "./ObservationStationMarkers";
 
 
 const KAKAO_APPKEY = import.meta.env.VITE_KAKAO_API_KEY;
@@ -16,8 +15,7 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   const containerRef = useRef(null);
   const infoWindowRef = useRef(null);
   const touristMarkersRef = useRef([]);
-  const marineMarkersRef = useRef([]);
-  const surfaceMarkersRef = useRef([]);
+  const observationMarkersRef = useRef([]);
 
   // 실제 DB 데이터 사용 - 지역 필터링은 프론트엔드에서 처리
   const { places, loading: placesLoading } = useLeisurePlaces({
@@ -42,8 +40,12 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
   const [selectedWaterSport, setSelectedWaterSport] = useState(null);
   const loading = placesLoading || marineLoading || surfaceLoading || marineObsLoading || surfaceObsLoading;
 
-  const [showMarineStations, setShowMarineStations] = useState(false);
-  const [showSurfaceStations, setShowSurfaceStations] = useState(false);
+  const [showObservationStations, setShowObservationStations] = useState(false);
+  
+  // showObservationStations 상태 변경 로그
+  useEffect(() => {
+    console.log('🔄 MapView - showObservationStations 상태 변경:', showObservationStations);
+  }, [showObservationStations]);
   const [geoData, setGeoData] = useState(null);
 
 
@@ -134,36 +136,28 @@ export default function MapView({ selectedRegion, onRegionSelect }) {
         selectedWaterSport={selectedWaterSport}
         onRegionSelect={onRegionSelect}
         onWaterSportSelect={setSelectedWaterSport}
-        showMarineStations={showMarineStations}
-        onMarineStationsToggle={setShowMarineStations}
-        showSurfaceStations={showSurfaceStations}
-        onSurfaceStationsToggle={setShowSurfaceStations}
+        showObservationStations={showObservationStations}
+        onObservationStationsToggle={setShowObservationStations}
       />
 
       {/* 마커 컴포넌트들 */}
       <PlaceMarkers
         places={places}
         selectedRegion={selectedRegion}
+        selectedWaterSport={selectedWaterSport}
         mapRef={mapRef}
         touristMarkersRef={touristMarkersRef}
         infoWindowRef={infoWindowRef}
       />
 
-      <MarineStationMarkers
+      <ObservationStationMarkers
         marineStations={marineStations}
-        marineObservations={marineObservations}
-        showMarineStations={showMarineStations}
-        mapRef={mapRef}
-        marineMarkersRef={marineMarkersRef}
-        infoWindowRef={infoWindowRef}
-      />
-
-      <SurfaceStationMarkers
         surfaceStations={surfaceStations}
+        marineObservations={marineObservations}
         surfaceObservations={surfaceObservations}
-        showSurfaceStations={showSurfaceStations}
+        showObservationStations={showObservationStations}
         mapRef={mapRef}
-        surfaceMarkersRef={surfaceMarkersRef}
+        observationMarkersRef={observationMarkersRef}
         infoWindowRef={infoWindowRef}
       />
 
