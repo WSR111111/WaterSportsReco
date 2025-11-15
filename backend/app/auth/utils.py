@@ -6,7 +6,7 @@ import os
 import hashlib
 from passlib.context import CryptContext
 from typing import Optional, Dict, Any
-from .database import get_db_manager
+from app.database import get_db_manager
 from .models import User
 import logging
 

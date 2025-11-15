@@ -1,3 +1,9 @@
+"""
+app/config.py
+────────────────────────────────────────────
+환경설정 관리
+"""
+
 import os
 from dotenv import load_dotenv
 from pathlib import Path
@@ -14,12 +20,12 @@ VITE_KAKAO_API_KEY = os.getenv("VITE_KAKAO_API_KEY", "")
 TOURIST_API_KEY = os.getenv("TOURIST_API_KEY", "")
 
 # Database Settings
-MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
-MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "watersportsdb")
-MYSQL_USER = os.getenv("MYSQL_USER", "watersports_user")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
-MYSQL_ROOT_PASSWORD = os.getenv("MYSQL_ROOT_PASSWORD", "")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+POSTGRES_PORT = int(os.getenv("POSTGRES_PORT"))
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+
 
 # 기본 개발 환경 CORS 설정
 DEFAULT_ORIGINS = [

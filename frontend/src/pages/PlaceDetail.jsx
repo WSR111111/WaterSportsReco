@@ -22,14 +22,19 @@ export default function PlaceDetail({ placeId }) {
 
             try {
                 console.log('API 호출 시작:', placeId);
-                const data = await getPlaceDetail(placeId);
-                console.log('API 응답 데이터:', data);
-                setPlaceData(data);
-                setError(null);
+                const result = await getPlaceDetail(placeId);
+                console.log('API 응답 데이터:', result);
+                
+                if (result.success && result.place) {
+                    setPlaceData(result.place);
+                    setError(null);
+                } else {
+                    setError(result.error || '장소 정보를 찾을 수 없습니다');
+                    setPlaceData(null);
+                }
             } catch (error) {
                 console.error('장소 상세 정보 로드 실패:', error);
-                console.error('Error details:', error.response?.data || error.message);
-                setError(error.response?.data?.detail || error.message || '알 수 없는 오류가 발생했습니다');
+                setError(error.message || '알 수 없는 오류가 발생했습니다');
                 setPlaceData(null);
             } finally {
                 setLoading(false);
@@ -141,7 +146,7 @@ export default function PlaceDetail({ placeId }) {
                 </h1>
 
                 <p style={{ margin: 0, color: '#007bff', fontSize: '16px' }}>
-                    🏄 {placeData.sport_name || '수상스포츠'}
+                    🏄‍♂️ {placeData.category_name || '레저스포츠 시설'}
                 </p>
             </div>
 
@@ -188,7 +193,14 @@ export default function PlaceDetail({ placeId }) {
                         <div style={{ marginBottom: '15px' }}>
                             <strong>🏷️ 지역:</strong>
                             <p style={{ margin: '5px 0', color: '#666' }}>
-                                {placeData.region_name} {placeData.sigungu_name}
+                                {placeData.region_name || '지역 정보 없음'}
+                            </p>
+                        </div>
+
+                        <div style={{ marginBottom: '15px' }}>
+                            <strong>🏄‍♂️ 스포츠 종목:</strong>
+                            <p style={{ margin: '5px 0', color: '#666' }}>
+                                {placeData.category_name || '레저스포츠 시설'}
                             </p>
                         </div>
 
@@ -281,7 +293,12 @@ export default function PlaceDetail({ placeId }) {
                     }}>
                         <div>
                             <h4 style={{ color: '#007bff' }}>🏄‍♂️ 체험 프로그램</h4>
-                            <p style={{ color: '#666' }}>다양한 수상스포츠 체험 프로그램을 제공합니다.</p>
+                            <p style={{ color: '#666' }}>
+                                {placeData.category_name ? 
+                                    `${placeData.category_name} 체험 프로그램을 제공합니다.` : 
+                                    '다양한 레저스포츠 체험 프로그램을 제공합니다.'
+                                }
+                            </p>
                         </div>
 
                         <div>
